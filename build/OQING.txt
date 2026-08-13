@@ -1,0 +1,99 @@
+========================================================================
+  VAZIFALAR — loyihalar kesimida ish rejasi
+  O'RNATISH YO'RIQNOMASI
+========================================================================
+
+BU FLESHKADA NIMA BOR
+---------------------
+   Vazifalar-Setup-1.0.0.exe   - dasturning o'rnatuvchisi
+   OQING.txt                   - shu yo'riqnoma
+
+Bu fleshkada HECH KIMNING VAZIFALARI YO'Q — faqat dasturning o'zi.
+Har bir kompyuterda ro'yxatlar alohida, mustaqil saqlanadi.
+
+
+O'RNATISH
+---------
+1. Fleshkani kompyuterga uling.
+2. Vazifalar-Setup-1.0.0.exe faylini ikki marta bosing.
+3. Ochilgan oynada "Далее" (Keyingi) tugmasini bosib boring.
+4. O'rnatish tugagach dastur o'zi ishga tushadi.
+
+Internet KERAK EMAS. Administrator paroli KERAK EMAS.
+
+
+!! WINDOWS OGOHLANTIRISHI CHIQSA
+--------------------------------
+Birinchi ishga tushirganda Windows quyidagi oynani ko'rsatishi mumkin:
+
+   "Windows protected your PC"  yoki
+   "Система Windows защитила ваш компьютер"
+
+Bu virus degani EMAS. Windows raqamli sertifikat bilan imzolanmagan
+har qanday yangi dasturni shunday qarshi oladi.
+
+Davom etish uchun:
+   1. "Подробнее" (More info) yozuviga bosing
+   2. "Выполнить в любом случае" (Run anyway) tugmasini bosing
+
+Bu faqat birinchi marta so'raladi.
+
+O'rnatilgandan keyin fleshkani chiqarib olsangiz bo'ladi — dastur
+kompyuterda mustaqil ishlayveradi.
+
+
+DASTURNI QAYERDAN OCHISH
+------------------------
+O'rnatishdan keyin ikki joyda yorliq paydo bo'ladi:
+   - Ish stolida (Desktop) — "Vazifalar"
+   - Пуск (Start) menyusida — "Vazifalar"
+
+
+BIRINCHI ISHLATISH
+------------------
+Dastur birinchi ochilganda qisqacha tanishtiruv oynasi chiqadi.
+Istalgan payt chapdagi pastki "Yo'riqnoma" tugmasini bosib,
+to'liq tushuntirishni o'qishingiz mumkin.
+
+Qisqacha:
+   1. Chapdagi "LOYIHALAR" yonidagi + bilan loyiha qo'shing
+      (qog'ozdagi bitta varaq = bitta loyiha).
+   2. "Vazifa qo'shish..." qatoriga yozib Enter bosing.
+   3. Muddat qo'yish uchun vazifa o'ngidagi  ...  tugmasini bosing.
+   4. Bajarilgan ishni yonidagi doiracha bilan belgilang —
+      u "Bajarilgan" bo'limiga tushadi.
+
+Muddat yaqinlashganda yozuv rangi o'zgaradi va Windows
+bildirishnomasi chiqadi.
+
+
+VAZIFALARIM QAYERDA SAQLANADI
+-----------------------------
+Har bir kompyuterning o'z profilida:
+
+   C:\Users\<foydalanuvchi>\AppData\Roaming\Vazifalar\vazifalar.db
+
+Aniq manzilni dastur ichida ko'rish mumkin:
+   Sozlamalar -> Ma'lumotlar bazasi -> "Papkani ochish"
+
+Vazifalar fleshkaga YOZILMAYDI va boshqa kompyuterga o'tmaydi.
+Internetga ham hech narsa yuborilmaydi.
+
+
+ZAXIRA NUSXA
+------------
+Sozlamalar -> Zaxira nusxa -> "Saqlash"
+
+Bitta JSON fayl hosil bo'ladi. Uni boshqa diskka yoki fleshkaga
+ko'chirib qo'ying. Kerak bo'lganda "Yuklash" orqali qaytariladi
+(shu yo'l bilan ma'lumotni boshqa kompyuterga ham ko'chirasiz).
+
+
+DASTURNI O'CHIRISH
+------------------
+Параметры -> Приложения -> Vazifalar -> Удалить
+
+Vazifalaringiz O'CHMAYDI. Dasturni qayta o'rnatsangiz,
+hammasi joyida turadi.
+
+========================================================================

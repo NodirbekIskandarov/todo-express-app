@@ -267,7 +267,8 @@ function renderProjectTree(projects, single) {
         <span class="twisty">▼</span>
         <span class="dot" style="background:${esc(p.color)}"></span>
         <span class="name">${esc(p.name)}</span>
-        <span class="meta">${open.length} ta${late ? ` · <span style="color:var(--danger)">${late} ta shoshilinch</span>` : ''}</span>
+        ${late ? `<span class="badge alarm">${late}</span>` : ''}
+        <span class="meta">${open.length} ta</span>
         <span class="spacer"></span>
         <span class="row-actions">
           <button class="icon-btn" data-act="add-section" data-project="${p.id}" title="Yangi mavzu">＋</button>
@@ -278,26 +279,29 @@ function renderProjectTree(projects, single) {
 
     if (isCollapsed) return `<div class="project-block">${head}</div>`;
 
-    const sections = sectionsOf(p.id).map((s) => renderSection(p, s)).join('');
+    // Bitta mavzuli loyihada mavzu sarlavhasi ortiqcha — vazifalar to'g'ridan-to'g'ri ko'rinadi.
+    const secs = sectionsOf(p.id);
+    const bare = secs.length === 1;
+    const sections = secs.map((s) => renderSection(p, s, bare)).join('');
     const doneBlock = done.length ? renderDoneBlock(p, done, doneOpen.has(p.id)) : '';
 
     return `<div class="project-block">
       ${head}
       ${sections}
-      <button class="add-section-btn" data-act="add-section" data-project="${p.id}">＋ Mavzu qo‘shish</button>
+      <button class="add-section-btn" data-act="add-section" data-project="${p.id}">＋ mavzu</button>
       ${doneBlock}
     </div>`;
   }).join('');
 }
 
-function renderSection(project, section) {
+function renderSection(project, section, bare = false) {
   const tasks = tasksOf(section.id);
-  const isCollapsed = !!section.collapsed;
+  const isCollapsed = !bare && !!section.collapsed;
 
   const body = isCollapsed ? '' : `
     <div class="section-body" data-section="${section.id}" data-project="${project.id}">
       ${tasks.map((t) => renderTask(t, { crumb: false })).join('')}
-      <div class="add-row">
+      <div class="add-row ${tasks.length ? '' : 'always'}">
         <span class="plus">＋</span>
         <input class="add-input" type="text" placeholder="Vazifa qo‘shish…"
                data-act="add-task" data-section="${section.id}" data-project="${project.id}"
@@ -305,11 +309,11 @@ function renderSection(project, section) {
       </div>
     </div>`;
 
-  return `<div class="section-block">
+  const head = bare ? '' : `
     <div class="section-head ${isCollapsed ? 'collapsed' : ''}" data-act="toggle-section" data-section="${section.id}">
       <span class="twisty">▼</span>
       <span class="name">${esc(section.name)}</span>
-      <span class="count">${tasks.length}</span>
+      ${isCollapsed ? `<span class="count">${tasks.length}</span>` : ''}
       <span class="spacer"></span>
       <span class="row-actions">
         <button class="icon-btn" data-act="move-section" data-section="${section.id}" data-dir="-1" title="Yuqoriga">▲</button>
@@ -317,9 +321,9 @@ function renderSection(project, section) {
         <button class="icon-btn" data-act="rename-section" data-section="${section.id}" title="Nomini o‘zgartirish">✎</button>
         <button class="icon-btn danger" data-act="del-section" data-section="${section.id}" title="Mavzuni o‘chirish">🗑</button>
       </span>
-    </div>
-    ${body}
-  </div>`;
+    </div>`;
+
+  return `<div class="section-block ${bare ? 'bare' : ''}">${head}${body}</div>`;
 }
 
 function renderDoneBlock(project, done, isOpen) {
@@ -953,6 +957,8 @@ $('#btn-expand-all').addEventListener('click', async () => {
 
 $('#btn-settings').addEventListener('click', openSettingsModal);
 
+$('#btn-help').addEventListener('click', openHelpModal);
+
 /** “+ Vazifa” — joriy ko'rinishdagi birinchi qo'shish maydoniga fokus beradi. */
 function focusFirstAdd() {
   if (ui.view !== 'all' && ui.view !== 'project') {
@@ -1203,6 +1209,111 @@ async function openSettingsModal() {
   });
 }
 
+/* ============================================================ yo'riqnoma */
+
+const HELP_HTML = `
+  <h2>Qanday ishlatiladi</h2>
+
+  <div class="help-block">
+    <div class="help-title">1. Loyiha — qog‘ozdagi bitta varaq</div>
+    <p>Chapdagi <b>LOYIHALAR</b> yonidagi <b>+</b> tugmasi bilan yangi loyiha qo‘shasiz.
+    Masalan: “Sayt redizayn”, “CRM tizimi”, “Shaxsiy ishlar”.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">2. Vazifa yozish</div>
+    <p>Loyiha ostidagi <b>“Vazifa qo‘shish…”</b> qatoriga yozib <b>Enter</b> bosing.
+    Qator ochiq qoladi — ketma-ket bir nechta ish yozishingiz mumkin.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">3. Mavzu — varaq ichidagi sarlavha</div>
+    <p>Ishlar ko‘payib ketsa, ularni mavzularga bo‘lasiz: “Dizayn”, “Backend”, “Hujjatlar”.
+    Loyiha nomiga sichqonchani olib borsangiz o‘ng tomonda <b>+</b> chiqadi — mavzu shundan qo‘shiladi.</p>
+    <p class="hint">Bitta mavzu bo‘lsa, uning nomi ko‘rsatilmaydi — ro‘yxat sodda ko‘rinadi.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">4. Muddat qo‘yish</div>
+    <p>Vazifa ustiga sichqonchani olib boring va o‘ngdagi <b>⋯</b> tugmasini bosing.
+    Ochilgan oynadan sana tanlang yoki <b>Bugun / Ertaga / 3 kun / 1 hafta</b> tugmalaridan foydalaning.</p>
+    <p>Muddat yaqinlashgani rangdan bilinadi:</p>
+    <div class="chips" style="margin-top:4px">
+      <span class="badge alarm">⚠ 2 kun kechikdi</span>
+      <span class="badge alarm">🔔 Bugun</span>
+      <span class="badge warn">⏰ Ertaga</span>
+      <span class="badge gray">📅 payshanba · 4 kun</span>
+    </div>
+    <p class="hint">Bundan tashqari Windows bildirishnomasi ham chiqadi. Necha kun oldin
+    ogohlantirish kerakligini Sozlamalardan o‘zgartirasiz.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">5. Bajarilgan ishni belgilash</div>
+    <p>Vazifa yonidagi <b>doiracha</b>ni bosing. Ish ro‘yxatdan chiqib, o‘sha loyihaning
+    pastidagi <b>“✓ Bajarilgan”</b> bo‘limiga tushadi. U yerdan qaytarib olsa ham bo‘ladi.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">6. Topa olmayapsizmi?</div>
+    <p><b>Ctrl + F</b> bosing va so‘zni yozing — barcha loyihalar bo‘ylab qidiradi.
+    Chapdagi <b>Bugun</b>, <b>Yaqin 7 kun</b>, <b>Muddati o‘tgan</b> bo‘limlari esa
+    shoshilinch ishlarni bir joyga yig‘adi.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">7. O‘chirish va qaytarish</div>
+    <p>Har bir vazifa, mavzu va loyihada <b>🗑</b> tugmasi bor. Xato o‘chirilsa,
+    pastda chiqadigan <b>“Qaytarish”</b> tugmasini bosing.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">Tezkor tugmalar</div>
+    <table class="help-table">
+      <tr><td><b>Ctrl + N</b></td><td>yangi vazifa</td></tr>
+      <tr><td><b>Ctrl + Shift + N</b></td><td>yangi loyiha</td></tr>
+      <tr><td><b>Ctrl + F</b></td><td>qidiruv</td></tr>
+      <tr><td><b>Enter</b></td><td>vazifani saqlash</td></tr>
+      <tr><td><b>Esc</b></td><td>yopish / bekor qilish</td></tr>
+    </table>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">Ma'lumotlarim qayerda?</div>
+    <p>Hammasi shu kompyuterning o‘zida saqlanadi — internet ham, server ham kerak emas.
+    Boshqa hech kim ko‘rmaydi. Nusxa olish uchun:
+    <b>Sozlamalar → Zaxira nusxa → Saqlash</b>.</p>
+  </div>`;
+
+function openHelpModal() {
+  openModal(`${HELP_HTML}
+    <div class="modal-actions">
+      <button class="primary-btn" id="h-close">Tushunarli</button>
+    </div>`, (m) => { m.querySelector('#h-close').onclick = closeModal; });
+}
+
+function openWelcomeModal() {
+  openModal(`
+    <h2>Xush kelibsiz 👋</h2>
+    <p style="color:var(--text-soft);margin:0 0 14px">
+      Bu dastur qog‘ozdagi ish ro‘yxatlaringiz o‘rniga. Har bir loyiha — alohida varaq,
+      ichida mavzular va vazifalar. Muddat qo‘ysangiz, yaqinlashganda o‘zi ogohlantiradi.
+      Barcha ma'lumot shu kompyuterda saqlanadi.
+    </p>
+    <p style="color:var(--text-soft);margin:0 0 14px">
+      Boshlash uchun namuna loyiha tayyor turibdi — undagi vazifalarni o‘chirib,
+      o‘zingiznikini yozishingiz mumkin.
+    </p>
+    <div class="modal-actions">
+      <button class="ghost-btn" id="w-help">Yo‘riqnomani ko‘rish</button>
+      <button class="primary-btn" id="w-start">Boshlash</button>
+    </div>`, (m) => {
+    const done = async () => { await saveSetting('seenWelcome', true); };
+    m.querySelector('#w-start').onclick = async () => { await done(); closeModal(); };
+    m.querySelector('#w-help').onclick = async () => { await done(); closeModal(); openHelpModal(); };
+  });
+}
+
 /* ============================================================ toast */
 
 function toast(message, actionLabel, action) {
@@ -1250,4 +1361,5 @@ setInterval(() => {
   state = await window.api.getState();
   applyTheme();
   render();
+  if (!state.settings.seenWelcome) openWelcomeModal();
 })();

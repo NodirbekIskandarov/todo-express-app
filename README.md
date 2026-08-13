@@ -36,7 +36,7 @@ saqlanadi — server ham, internet ham kerak emas.
 | `Enter` | Vazifani saqlash (qo'shish maydoni ochiq qoladi — ketma-ket yozish uchun) |
 | `Esc` | Qidiruvni tozalash / tafsilotni yopish / oynani yopish |
 
-## Ishga tushirish
+## Ishga tushirish (ishlab chiqish)
 
 ```bash
 npm install
@@ -45,6 +45,40 @@ npm start
 
 > Eslatma: agar tizimda `ELECTRON_RUN_AS_NODE=1` o'zgaruvchisi o'rnatilgan bo'lsa,
 > Electron oynasi ochilmaydi. `npm start` buni o'zi hisobga oladi (`scripts/start.js`).
+
+## Tarqatish — fleshka orqali
+
+```bash
+npm run dist
+```
+
+Natija:
+
+```
+release/
+├── Vazifalar-Setup-1.0.0.exe      o'rnatuvchi
+└── FLESHKAGA/                     <- shu papkani fleshkaga ko'chiring
+    ├── Vazifalar-Setup-1.0.0.exe
+    └── OQING.txt                  o'rnatish yo'riqnomasi (o'zbekcha)
+```
+
+O'rnatuvchi haqida:
+
+- **Administrator paroli so'ralmaydi** — dastur foydalanuvchi profiliga o'rnatiladi.
+- **Internet kerak emas** — hech qanday yangilanish serveri yo'q.
+- Ish stoliga va Пуск menyusiga yorliq o'zi qo'yiladi.
+- Dastur o'chirilsa ham **vazifalar saqlanib qoladi**.
+- Har bir kompyuterda mustaqil baza — fleshkada hech kimning ma'lumoti ko'chmaydi.
+
+Windows imzolanmagan dasturga "Windows protected your PC" ogohlantirishini
+ko'rsatadi — `OQING.txt` da buni qanday o'tish yozilgan (Подробнее → Выполнить в любом случае).
+
+## Tekshiruv
+
+```bash
+node scripts/smoke.js        # 22 ta funksional tekshiruv
+node scripts/make-icon.js    # build/icon.ico ni qayta yasash
+```
 
 ## Tuzilishi
 

@@ -1,0 +1,44 @@
+appId: uz.vazifalar.desktop
+productName: Vazifalar
+copyright: Vazifalar
+
+directories:
+  output: release
+  buildResources: build
+
+# Faqat dastur kodi paketlanadi. Tashqi kutubxona yo'q — SQLite Electron ichida
+# (node:sqlite), shuning uchun native modul ham, asarUnpack ham kerak emas.
+files:
+  - src/**
+  - package.json
+  - '!**/*.map'
+
+# Yagona tarqatish formati: o'rnatuvchi.
+# Fleshkaga faqat Vazifalar-Setup-<versiya>.exe ko'chiriladi — vazifalar hech qachon
+# dastur bilan birga ko'chmaydi, har kompyuterda mustaqil baza yaratiladi.
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  artifactName: Vazifalar-Setup-${version}.exe
+  oneClick: false # o'rnatish oynasi ko'rsatiladi
+  perMachine: false # foydalanuvchi profiliga o'rnatiladi — administrator paroli SO'RALMAYDI
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Vazifalar
+  menuCategory: false
+  runAfterFinish: true
+  # Dastur o'chirilganda vazifalar YO'QOLMASLIGI kerak.
+  deleteAppDataOnUninstall: false
+  language: '1049' # ruscha interfeys (NSIS da o'zbek tili yo'q)
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+
+# Offline muhit uchun: hech qanday yangilanish serveri yo'q.
+publish: null
+compression: normal

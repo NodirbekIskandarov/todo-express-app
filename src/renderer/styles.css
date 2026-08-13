@@ -183,7 +183,8 @@ input, textarea { user-select: text; }
 .nav-item.drop-below { box-shadow: inset 0 -2px 0 var(--accent); }
 .nav-item.drop-into  { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
 
-.sidebar-foot { padding: 8px; border-top: 1px solid var(--border); }
+.sidebar-foot { display: flex; gap: 4px; padding: 8px; border-top: 1px solid var(--border); }
+.sidebar-foot .ghost-btn { flex: 1; padding: 6px 4px; font-size: 12.5px; }
 
 /* ============================================================ tugmalar */
 
@@ -344,27 +345,31 @@ input, textarea { user-select: text; }
 
 /* ------------------------------------------------------------ mavzu bloki */
 
-.section-block { margin: 2px 0 6px; padding-left: 15px; }
+.section-block { margin: 6px 0 4px; padding-left: 17px; }
+.section-block.bare { margin: 0; }
 
 .section-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
+  gap: 7px;
+  height: 26px;
   padding: 0 6px;
   border-radius: 7px;
   cursor: pointer;
-  color: var(--text-soft);
+  color: var(--text-faint);
 }
-.section-head:hover { background: var(--bg-hover); }
-.section-head .name { font-weight: 600; font-size: 13px; }
-.section-head .count { color: var(--text-faint); font-size: 12px; font-weight: 500; }
+.section-head:hover { background: var(--bg-hover); color: var(--text-soft); }
+.section-head .name { font-weight: 600; font-size: 12px; letter-spacing: .3px; }
+.section-head .count { font-size: 11.5px; font-weight: 500; }
 .section-head .spacer { flex: 1; }
 .section-head .row-actions { opacity: 0; }
 .section-head:hover .row-actions { opacity: 1; }
+/* Yig'ish belgisi faqat kerak bo'lganda ko'rinadi — qator tinch tursin. */
+.section-head .twisty { opacity: 0; }
+.section-head:hover .twisty, .section-head.collapsed .twisty { opacity: 1; }
 
-.section-body { padding-left: 16px; border-left: 1px solid var(--border); margin-left: 7px; }
-.section-body.drop-target { border-left-color: var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
+.section-body { padding-left: 8px; }
+.section-body.drop-target { background: var(--accent-soft); border-radius: 8px; }
 
 /* ------------------------------------------------------------ vazifa qatori */
 
@@ -517,12 +522,25 @@ textarea.input { resize: vertical; min-height: 62px; width: 100%; font-family: i
 
 /* ------------------------------------------------------------ qo'shish qatori */
 
+/* Qo'shish qatori doim ko'rinib turmaydi — sichqoncha yaqinlashganda paydo bo'ladi.
+   Bo'sh mavzuda (.always) esa har doim ko'rinadi, aks holda nima qilishni bilib bo'lmaydi. */
 .add-row {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 3px 8px;
+  padding: 0 8px;
   border-radius: 8px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height .13s ease, opacity .13s ease;
+}
+.add-row.always,
+.section-block:hover > .section-body > .add-row,
+.add-row:focus-within {
+  max-height: 34px;
+  padding: 3px 8px;
+  opacity: 1;
 }
 .add-row .plus { color: var(--text-faint); flex: none; width: 17px; text-align: center; }
 .add-input {
@@ -539,33 +557,36 @@ textarea.input { resize: vertical; min-height: 62px; width: 100%; font-family: i
 .add-row:hover { background: var(--bg-hover); }
 
 .add-section-btn {
-  margin: 4px 0 0 15px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 8px;
-  padding: 4px 11px;
+  margin: 2px 0 0 23px;
+  border: 0;
+  border-radius: 7px;
+  padding: 3px 7px;
   background: transparent;
   color: var(--text-faint);
   font-size: 12px;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s;
 }
-.add-section-btn:hover { color: var(--text); border-color: var(--accent); }
+.project-block:hover .add-section-btn { opacity: 1; }
+.add-section-btn:hover { color: var(--accent); background: var(--bg-hover); }
 
 /* ------------------------------------------------------------ bajarilganlar */
 
-.done-block { margin-top: 8px; padding-left: 15px; }
+.done-block { margin-top: 4px; padding-left: 23px; }
 .done-head {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 3px 7px;
   border-radius: 7px;
   cursor: pointer;
-  color: var(--ok);
-  font-size: 12.5px;
+  color: var(--text-faint);
+  font-size: 12px;
   font-weight: 600;
 }
-.done-head:hover { background: var(--bg-hover); }
-.done-body { padding-left: 16px; margin-left: 7px; border-left: 1px solid var(--border); }
+.done-head:hover { background: var(--bg-hover); color: var(--ok); }
+.done-body { padding-left: 8px; }
 
 /* ============================================================ modal */
 
@@ -601,6 +622,18 @@ textarea.input { resize: vertical; min-height: 62px; width: 100%; font-family: i
   cursor: pointer;
 }
 .color-swatch.on { border-color: var(--text); }
+
+/* ---------- yo'riqnoma ---------- */
+
+.help-block { margin-bottom: 16px; }
+.help-title {
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+.help-block p { margin: 0 0 6px; color: var(--text-soft); }
+.help-block p.hint { color: var(--text-faint); font-size: 12.5px; }
+.help-table { border-collapse: collapse; color: var(--text-soft); }
+.help-table td { padding: 2px 14px 2px 0; }
 
 .settings-row {
   display: flex;

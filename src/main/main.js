@@ -5,6 +5,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 const db = require('./db');
 
+// Ma'lumotlar papkasi ishlab chiqish va o'rnatilgan versiyada bir xil bo'lsin:
+// %APPDATA%\Vazifalar\vazifalar.db
+app.setName('Vazifalar');
+
 // Bitta nusxa yetarli — ikkinchi marta ochilsa, mavjud oyna ko'tariladi.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
