@@ -37,6 +37,14 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   checkReminders: () => call('reminders:check'),
+
+  // Eslatma oynasi uchun
+  reminder: {
+    onData: (cb) => ipcRenderer.on('reminder:data', (_e, payload) => cb(payload)),
+    ok: (ids) => call('reminder:ok', ids),
+    openApp: (ids) => call('reminder:open', ids),
+    test: () => call('reminder:test'),
+  },
   dbPath: () => call('db:path'),
   revealDb: () => call('db:reveal'),
   exportBackup: () => call('backup:export'),

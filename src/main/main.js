@@ -1,13 +1,20 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Notification, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const db = require('./db');
+const { duePending } = require('./reminders');
 
 // Ma'lumotlar papkasi ishlab chiqish va o'rnatilgan versiyada bir xil bo'lsin:
 // %APPDATA%\Vazifalar\vazifalar.db
 app.setName('Vazifalar');
+
+// Windows toast bildirishnomalari faqat AppUserModelID Start menyusidagi yorliqning
+// AUMID'i bilan aynan mos kelganda ko'rinadi. O'rnatgich yorliqqa Electron'ning
+// standart qiymatini yozadi — shuni aniq belgilab qo'yamiz, tasodifga qoldirmaymiz.
+const APP_USER_MODEL_ID = 'electron.app.Vazifalar';
+if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
 
 // Bitta nusxa yetarli — ikkinchi marta ochilsa, mavjud oyna ko'tariladi.
 if (!app.requestSingleInstanceLock()) {
@@ -16,6 +23,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let win = null;
+let reminderWin = null;
 let dbFile = null;
 let reminderTimer = null;
 
@@ -23,6 +31,7 @@ const DEFAULTS = {
   theme: 'system',        // 'light' | 'dark' | 'system'
   remindDays: 2,          // necha kun qolganda ogohlantirilsin
   notificationsOn: true,
+  autoStart: false,       // Windows bilan birga ishga tushsinmi
   windowBounds: null,
 };
 
@@ -55,7 +64,13 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
-  win.once('ready-to-show', () => win.show());
+
+  // Windows bilan birga ochilganda oyna ekranni to'sib turmasin.
+  const quiet = process.argv.includes('--autostart');
+  win.once('ready-to-show', () => {
+    win.show();
+    if (quiet) win.minimize();
+  });
 
   // Tekshirish rejimi: interfeys xatolari terminalga chiqadi.
   if (process.env.VAZIFA_DEBUG) {
@@ -72,8 +87,21 @@ function createWindow() {
       const report = await win.webContents.executeJavaScript(fs.readFileSync(file, 'utf8'), true);
       console.log('SMOKE_REPORT ' + JSON.stringify(report, null, 1));
       if (process.env.VAZIFA_SMOKE_SHOT) {
-        const img = await win.webContents.capturePage();
-        fs.writeFileSync(process.env.VAZIFA_SMOKE_SHOT, img.toPNG());
+        // Eslatma oynasi ochilgan bo'lsa — o'shani suratga olamiz.
+        const target = reminderWin && !reminderWin.isDestroyed() ? reminderWin : win;
+        // Yangi ochilgan oyna darhol suratga tushmaydi (UnknownVizError) — qayta urinamiz.
+        for (let i = 0; i < 6; i++) {
+          await new Promise((r) => setTimeout(r, 700));
+          try {
+            const img = await target.webContents.capturePage();
+            if (img.getSize().width > 0) {
+              fs.writeFileSync(process.env.VAZIFA_SMOKE_SHOT, img.toPNG());
+              break;
+            }
+          } catch (e) {
+            console.log(`[surat ${i + 1}] ${e.message}`);
+          }
+        }
       }
       app.quit();
     });
@@ -94,6 +122,12 @@ function createWindow() {
   });
 }
 
+/** Windows bilan birga ishga tushish. Eslatma faqat dastur ochiq bo'lganda chiqadi. */
+function applyAutoStart(on) {
+  if (process.platform !== 'win32') return;
+  app.setLoginItemSettings({ openAtLogin: !!on, args: ['--autostart'] });
+}
+
 function debounce(fn, ms) {
   let t = null;
   return (...args) => {
@@ -104,53 +138,92 @@ function debounce(fn, ms) {
 
 /* ------------------------------------------------------------ ogohlantirishlar */
 
-function plural(n) {
-  return n === 1 ? '1 ta vazifa' : `${n} ta vazifa`;
-}
-
 function checkReminders() {
   const s = settings();
-  if (!s.notificationsOn || !Notification.isSupported()) return;
-
-  const due = db.tasksNeedingReminder(s.remindDays);
-  if (!due.length) return;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const overdue = due.filter((t) => new Date(t.due_date + 'T00:00:00') < today);
-  const soon = due.filter((t) => !overdue.includes(t));
-
-  const lines = [];
-  if (overdue.length) lines.push(`Muddati o‘tgan: ${plural(overdue.length)}`);
-  if (soon.length) lines.push(`Muddati yaqin: ${plural(soon.length)}`);
-
-  const preview = due.slice(0, 3).map((t) => `• ${t.title} (${t.project_name})`).join('\n');
-  const more = due.length > 3 ? `\n…va yana ${due.length - 3} ta` : '';
-
-  const n = new Notification({
-    title: lines.join(' · '),
-    body: preview + more,
-    silent: false,
-  });
-  n.on('click', () => {
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.show();
-      win.focus();
-      win.webContents.send('navigate', { view: 'soon' });
-    }
-  });
-  n.show();
-
-  db.markNotified(due.map((t) => t.id));
-  if (win && !win.isDestroyed()) win.webContents.send('data-changed');
+  if (!s.notificationsOn) return 0;
+  const due = duePending(db.tasksNeedingReminder(s.remindDays), s.remindDays);
+  if (!due.length) return 0;
+  showReminderWindow(due);
+  return due.length;
 }
 
 function startReminderLoop() {
   clearInterval(reminderTimer);
-  // Dastur ochilganda bir marta, keyin har 30 daqiqada tekshiriladi.
+  // Dastur ochilgach bir marta, keyin har daqiqada — muddat vaqti aniq ushlanishi uchun.
   setTimeout(checkReminders, 4000);
-  reminderTimer = setInterval(checkReminders, 30 * 60 * 1000);
+  reminderTimer = setInterval(checkReminders, 60 * 1000);
+}
+
+/* ---------------------------------------------------------- eslatma oynasi */
+
+/**
+ * Eslatma ekran markazida, barcha oynalar ustida chiqadi va "OK" bosilmaguncha
+ * yopilmaydi. Windows toast'idan farqli — o'zi yo'qolib ketmaydi va
+ * "Focus assist" kabi tizim sozlamalari uni to'sib qo'ymaydi.
+ */
+function showReminderWindow(tasks) {
+  const payload = {
+    theme: settings().theme || 'system',
+    tasks: tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      note: t.note,
+      dueDate: t.due_date,
+      dueTime: t.due_time,
+      priority: t.priority,
+      project: t.project_name,
+    })),
+  };
+
+  if (reminderWin && !reminderWin.isDestroyed()) {
+    reminderWin.webContents.send('reminder:data', payload);
+    reminderWin.show();
+    reminderWin.focus();
+    return;
+  }
+
+  const height = Math.min(560, 172 + payload.tasks.length * 64);
+  reminderWin = new BrowserWindow({
+    width: 480,
+    height,
+    center: true,
+    frame: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    show: false,
+    // Shaffof oyna Windows'da ishonchsiz (rendering va surat olishda nosozliklar),
+    // shuning uchun oddiy oyna — fon rangi mavzuga moslanadi.
+    backgroundColor: (settings().theme === 'dark'
+      || (settings().theme !== 'light' && nativeTheme.shouldUseDarkColors)) ? '#171a21' : '#ffffff',
+    title: 'Eslatma',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  reminderWin.loadFile(path.join(__dirname, '..', 'renderer', 'reminder.html'));
+  reminderWin.once('ready-to-show', () => {
+    reminderWin.webContents.send('reminder:data', payload);
+    reminderWin.show();
+    reminderWin.focus();
+    // Boshqa dastur ustida ishlayotgan bo'lsa ham ko'zga tashlansin.
+    reminderWin.setAlwaysOnTop(true, 'screen-saver');
+  });
+  reminderWin.on('closed', () => { reminderWin = null; });
+}
+
+function closeReminderWindow(markIds) {
+  if (Array.isArray(markIds) && markIds.length) db.markNotified(markIds);
+  if (reminderWin && !reminderWin.isDestroyed()) reminderWin.destroy();
+  reminderWin = null;
+  if (win && !win.isDestroyed()) win.webContents.send('data-changed');
 }
 
 /* -------------------------------------------------------------------- IPC */
@@ -190,10 +263,39 @@ function registerIpc() {
   handle('settings:set', ({ key, value }) => {
     db.setSetting(key, value);
     if (key === 'remindDays' || key === 'notificationsOn') startReminderLoop();
+    if (key === 'autoStart') applyAutoStart(value);
     return settings();
   });
 
-  handle('reminders:check', () => { checkReminders(); return true; });
+  handle('reminders:check', () => checkReminders());
+
+  handle('reminder:ok', (ids) => { closeReminderWindow(ids); return true; });
+
+  handle('reminder:open', (ids) => {
+    closeReminderWindow(ids);
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.webContents.send('navigate', { view: 'today' });
+    }
+    return true;
+  });
+
+  // Sozlamalardagi "Sinab ko'rish" tugmasi — eslatma oynasi qanday chiqishini ko'rsatadi.
+  handle('reminder:test', () => {
+    const now = new Date();
+    showReminderWindow([{
+      id: -1,
+      title: 'Sinov eslatmasi — hammasi joyida',
+      note: 'Bu haqiqiy vazifa emas. Shu oyna ko‘rinayotgan bo‘lsa, eslatmalar ishlayapti.',
+      due_date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      due_time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      priority: 0,
+      project_name: 'Sinov',
+    }]);
+    return true;
+  });
 
   handle('db:path', () => dbFile);
   handle('db:reveal', () => { shell.showItemInFolder(dbFile); return true; });
@@ -250,7 +352,9 @@ app.whenReady().then(() => {
   registerIpc();
   Menu.setApplicationMenu(null);
   createWindow();
-  startReminderLoop();
+  applyAutoStart(settings().autoStart);
+  // Tekshiruv rejimida eslatma oynasi o'z-o'zidan ochilib testlarga xalaqit bermasin.
+  if (!process.env.VAZIFA_SMOKE) startReminderLoop();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

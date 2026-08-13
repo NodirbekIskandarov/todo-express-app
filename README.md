@@ -14,8 +14,20 @@ saqlanadi — server ham, internet ham kerak emas.
   - `🔔 Bugun` — qizil, pulslanadi
   - `⏰ Ertaga` / `⏰ 2 kun qoldi` — sariq (necha kun oldin ogohlantirish — sozlamalarda)
   - `📅 payshanba · 4 kun` — kulrang
-- **Tizim bildirishnomasi** — muddati yaqin yoki o'tib ketgan vazifalar haqida Windows
-  bildirishnomasi (dastur ochilganda va har 30 daqiqada bir marta, kuniga bir martadan ko'p emas).
+- **Eslatma oynasi** — muddat payti kelganda ekran markazida, barcha oynalar ustida chiqadi
+  va **OK bosilmaguncha yopilmaydi**. Windows toast'idan farqli: o'zi yo'qolib ketmaydi va
+  "Focus assist" kabi tizim sozlamalari uni to'sib qo'ymaydi. Qachon chiqadi:
+
+  | Holat | Eslatma vaqti |
+  |---|---|
+  | Vaqt qo'yilgan (masalan 17:40) | aynan o'sha vaqtda |
+  | Vaqtsiz, bugungi ish | ertalab 9:00 da |
+  | Muddati o'tgan | dastur ochilishi bilan darhol |
+  | Oldindan ogohlantirish | muddatdan N kun oldin, 9:00 da (N — sozlamalarda) |
+
+  Bitta vazifa uchun kuniga bir marta. Sozlamalarda **"Sinab ko'rish"** tugmasi va
+  **"Windows bilan birga ishga tushsin"** imkoniyati bor (eslatma dastur ochiq
+  turgandagina chiqadi).
 - **Takrorlanuvchi ishlar** — har kuni / har hafta / har oy / har yil, ixtiyoriy oraliq bilan
   ("har 2 haftada", "har 3 oyda"). Bajarilgan deb belgilanganda vazifa "Bajarilgan"ga tushadi
   va o'rniga keyingi muddat bilan yangisi ochiladi; **vaqti (masalan 09:00) saqlanadi**.
@@ -81,7 +93,7 @@ ko'rsatadi — `OQING.txt` da buni qanday o'tish yozilgan (Подробнее �
 ## Tekshiruv
 
 ```bash
-node scripts/db-test.js      # 18 ta tekshiruv: migratsiya + takrorlanish sanasi (Electron kerak emas)
+node scripts/db-test.js      # 30 ta: migratsiya, takrorlanish sanasi, eslatma vaqti (Electron kerak emas)
 node scripts/smoke.js        # 40 ta funksional tekshiruv (interfeys bilan birga)
 node scripts/make-icon.js    # build/icon.ico ni qayta yasash
 ```

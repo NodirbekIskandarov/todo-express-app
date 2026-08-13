@@ -1192,12 +1192,33 @@ async function openSettingsModal() {
 
     <div class="settings-row">
       <div>
-        <div>Tizim bildirishnomalari</div>
-        <div class="desc">Muddati yaqin vazifalar haqida Windows bildirishnomasi</div>
+        <div>Eslatma oynasi</div>
+        <div class="desc">Muddat vaqti kelganda ekran markazida oyna chiqadi va
+          <b>OK</b> bosilmaguncha yopilmaydi</div>
       </div>
       <div class="chips" id="s-notif">
         <button class="chip ${s.notificationsOn === false ? '' : 'on'}" data-v="1">Yoqilgan</button>
         <button class="chip ${s.notificationsOn === false ? 'on' : ''}" data-v="0">O‘chirilgan</button>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div>Eslatmani sinab ko‘rish</div>
+        <div class="desc">Oyna qanday chiqishini shu yerda tekshirib ko‘ring</div>
+      </div>
+      <button class="ghost-btn" id="s-test">Sinab ko‘rish</button>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div>Windows bilan birga ishga tushsin</div>
+        <div class="desc">Eslatma faqat dastur ochiq turganda chiqadi. Yoqilsa,
+          kompyuter yoqilganda dastur o‘zi ishga tushadi va darhol kichraytiriladi</div>
+      </div>
+      <div class="chips" id="s-autostart">
+        <button class="chip ${s.autoStart ? 'on' : ''}" data-v="1">Yoqilgan</button>
+        <button class="chip ${s.autoStart ? '' : 'on'}" data-v="0">O‘chirilgan</button>
       </div>
     </div>
 
@@ -1246,6 +1267,15 @@ async function openSettingsModal() {
       const b = e.target.closest('.chip'); if (!b) return;
       await saveSetting('notificationsOn', b.dataset.v === '1');
       m.querySelectorAll('#s-notif .chip').forEach((n) => n.classList.toggle('on', n === b));
+    };
+    m.querySelector('#s-autostart').onclick = async (e) => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      await saveSetting('autoStart', b.dataset.v === '1');
+      m.querySelectorAll('#s-autostart .chip').forEach((n) => n.classList.toggle('on', n === b));
+    };
+    m.querySelector('#s-test').onclick = async () => {
+      closeModal();
+      await window.api.reminder.test();
     };
     m.querySelector('#s-export').onclick = async () => {
       const r = await window.api.exportBackup();
@@ -1302,8 +1332,18 @@ const HELP_HTML = `
       <span class="badge warn">⏰ Ertaga</span>
       <span class="badge gray">📅 payshanba · 4 kun</span>
     </div>
-    <p class="hint">Bundan tashqari Windows bildirishnomasi ham chiqadi. Necha kun oldin
-    ogohlantirish kerakligini Sozlamalardan o‘zgartirasiz.</p>
+    <p><b>Eslatma oynasi</b> muddat payti kelganda ekran markazida, barcha oynalar ustida
+    chiqadi va <b>OK</b> bosilmaguncha yopilmaydi:</p>
+    <table class="help-table">
+      <tr><td>Vaqt qo‘ygan bo‘lsangiz</td><td>aynan o‘sha vaqtda (masalan 17:40)</td></tr>
+      <tr><td>Vaqtsiz, bugungi ish</td><td>ertalab soat 9:00 da</td></tr>
+      <tr><td>Muddati o‘tgan</td><td>dastur ochilishi bilan darhol</td></tr>
+      <tr><td>Oldindan ogohlantirish</td><td>muddatdan N kun oldin, soat 9:00 da</td></tr>
+    </table>
+    <p class="hint">N ni Sozlamalardan o‘zgartirasiz. Bitta vazifa uchun kuniga bir marta
+    eslatiladi. Eslatma faqat <b>dastur ochiq turganda</b> chiqadi — kompyuter yoqilganda
+    dastur o‘zi ishga tushishi uchun Sozlamalardan “Windows bilan birga ishga tushsin”
+    ni yoqing.</p>
   </div>
 
   <div class="help-block">

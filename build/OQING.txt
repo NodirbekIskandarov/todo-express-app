@@ -66,8 +66,19 @@ Qisqacha:
       ...  oynasidan "Takrorlanish" ni tanlang. Bajarilgandan
       keyin keyingi muddat bilan yangisi o'zi ochiladi.
 
-Muddat yaqinlashganda yozuv rangi o'zgaradi va Windows
-bildirishnomasi chiqadi.
+Muddat yaqinlashganda yozuv rangi o'zgaradi.
+
+Muddat payti kelganda ekran markazida ESLATMA OYNASI chiqadi
+va OK bosilmaguncha yopilmaydi. Vaqt qo'ygan bo'lsangiz
+(masalan 17:40) — aynan o'sha vaqtda; vaqtsiz bo'lsa —
+ertalab soat 9:00 da.
+
+MUHIM: eslatma faqat dastur ochiq turganda chiqadi.
+Kompyuter yoqilganda dastur o'zi ishga tushishi uchun:
+   Sozlamalar -> "Windows bilan birga ishga tushsin" -> Yoqilgan
+
+Eslatma qanday chiqishini tekshirib ko'rish uchun:
+   Sozlamalar -> "Eslatmani sinab ko'rish" -> Sinab ko'rish
 
 
 VAZIFALARIM QAYERDA SAQLANADI

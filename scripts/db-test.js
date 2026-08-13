@@ -86,6 +86,56 @@ check('kechikkan haftalik: hafta kuni saqlandi', dayOf(nx) === dayOf(pastIso), `
 check('takrorlanishsiz: null', nextDueDate(`${Y}-05-10`, null, 1) === null);
 check('muddatsiz: null', nextDueDate(null, 'weekly', 1) === null);
 
+/* ---------------------------------------------------- 3. eslatma vaqti */
+
+const { reminderMoment, duePending } = require('../src/main/reminders');
+
+const atISO = (s) => new Date(s);                      // '2026-08-13T17:41:00'
+const day = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+const hhmm = (dt) => `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+
+const now = atISO('2026-08-13T17:41:00');
+const today = day(now);
+
+// Bugungi, vaqti bor: aynan o'sha vaqtda chiqishi kerak.
+const timed = { due_date: today, due_time: '17:40' };
+const tm = reminderMoment(timed, 2, now);
+check('vaqtli vazifa: aynan o‘sha vaqtda', day(tm) === today && hhmm(tm) === '17:40', `${day(tm)} ${hhmm(tm)}`);
+check('vaqtli vazifa: 17:41 da payti kelgan', duePending([timed], 2, now).length === 1);
+check('vaqtli vazifa: 17:39 da hali erta',
+  duePending([timed], 2, atISO('2026-08-13T17:39:00')).length === 0);
+
+// Bugungi, vaqtsiz: ertalab 9:00.
+const plain = { due_date: today, due_time: null };
+const pm = reminderMoment(plain, 2, now);
+check('vaqtsiz bugungi: soat 9:00', hhmm(pm) === '09:00', hhmm(pm));
+check('vaqtsiz bugungi: 08:00 da erta',
+  duePending([plain], 2, atISO('2026-08-13T08:00:00')).length === 0);
+check('vaqtsiz bugungi: 09:30 da payti kelgan',
+  duePending([plain], 2, atISO('2026-08-13T09:30:00')).length === 1);
+
+// Muddati o'tgan: darhol.
+check('kechikkan: darhol',
+  duePending([{ due_date: '2026-08-10', due_time: null }], 2, atISO('2026-08-13T00:05:00')).length === 1);
+
+// Oldindan ogohlantirish: remindDays kun oldin, 9:00 da.
+const future = { due_date: '2026-08-15', due_time: '10:00' };
+const fm = reminderMoment(future, 2, now);
+check('oldindan: 2 kun oldin 9:00', day(fm) === '2026-08-13' && hhmm(fm) === '09:00', `${day(fm)} ${hhmm(fm)}`);
+check('oldindan: chegaradan tashqarida chiqmaydi',
+  duePending([{ due_date: '2026-08-20', due_time: null }], 2, now).length === 0);
+
+check('muddatsiz: eslatma yo‘q', reminderMoment({ due_date: null }, 2, now) === null);
+
+// Tartib: eng shoshilinchi birinchi.
+const order = duePending([
+  { due_date: today, due_time: '17:00' },
+  { due_date: '2026-08-11', due_time: null },
+  { due_date: today, due_time: '08:00' },
+], 2, now);
+check('tartib: kechikkan birinchi', order[0].due_date === '2026-08-11', order.map((t) => t.due_date + ' ' + (t.due_time || '')));
+check('tartib: erta vaqt oldinda', order[1].due_time === '08:00', order.map((t) => t.due_time));
+
 /* ---------------------------------------------------- natija */
 
 db.close();
