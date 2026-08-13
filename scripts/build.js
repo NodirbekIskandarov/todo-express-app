@@ -15,7 +15,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const root = path.join(__dirname, '..');
-const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+// Windows'da tahrirlangan JSON boshida BOM bo'lishi mumkin — u JSON.parse'ni buzadi.
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8').replace(/^﻿/, ''));
 
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
