@@ -139,20 +139,31 @@ function render() {
   restoreFocus();
 }
 
+/**
+ * render() butun ro'yxatni innerHTML bilan qaytadan quradi, ya'ni yozilayotgan
+ * matn DOM bilan birga yo'q bo'ladi. Shuning uchun fokusdagi maydonning
+ * qiymati ham, kursor o'rni ham chizishdan oldin olinadi va keyin qaytariladi.
+ */
 function captureFocus() {
   const el = document.activeElement;
   if (el && el.dataset && el.dataset.fk) {
     ui.focusKey = el.dataset.fk;
+    ui.focusValue = typeof el.value === 'string' ? el.value : null;
     ui.caret = typeof el.selectionStart === 'number' ? el.selectionStart : null;
   } else {
     ui.focusKey = null;
+    ui.focusValue = null;
+    ui.caret = null;
   }
 }
 
 function restoreFocus() {
   if (!ui.focusKey) return;
   const el = document.querySelector(`[data-fk="${CSS.escape(ui.focusKey)}"]`);
-  if (!el) { ui.focusKey = null; return; }
+  if (!el) { ui.focusKey = null; ui.focusValue = null; return; }
+  if (ui.focusValue != null && typeof el.value === 'string' && el.value !== ui.focusValue) {
+    el.value = ui.focusValue;
+  }
   el.focus();
   if (ui.caret != null && typeof el.setSelectionRange === 'function') {
     try { el.setSelectionRange(ui.caret, ui.caret); } catch { /* e'tiborsiz */ }
@@ -1351,9 +1362,15 @@ window.api.onNavigate(({ view }) => {
   render();
 });
 
-// Yarim tunda sanaga bog'liq belgilar o'z-o'zidan yangilansin.
+// Yarim tunda sanaga bog'liq belgilar ("Bugun", "Ertaga") o'z-o'zidan yangilansin.
+// Faqat SANA almashganda chiziladi — har daqiqada qayta chizish yozilayotgan
+// matnni ham, sichqoncha holatini ham bekorga buzadi.
+let lastRenderedDay = todayISO();
 setInterval(() => {
   if (document.hidden) return;
+  const day = todayISO();
+  if (day === lastRenderedDay) return;
+  lastRenderedDay = day;
   render();
 }, 60 * 1000);
 

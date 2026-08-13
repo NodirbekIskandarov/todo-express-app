@@ -95,6 +95,43 @@
     /* --- zaxira eksport ma'lumoti --- */
     check('sozlama saqlandi', (await window.api.settings.get()).remindDays === 2);
 
+    /* --- yozilayotgan matn qayta chizishda yo'qolmasligi kerak --- */
+    const liveSec = state.sections.find((s) => s.project_id === p.id);
+    const inp = q(`input[data-fk="add-${liveSec.id}"]`);
+    inp.focus();
+    inp.value = 'yarim yozilgan vazifa';
+    inp.setSelectionRange(5, 5);
+    render(); // eslatma tekshiruvi yoki sana almashuvi shunday qayta chizadi
+    const inp2 = q(`input[data-fk="add-${liveSec.id}"]`);
+    check('qo‘shish maydoni tozalanmadi', inp2.value === 'yarim yozilgan vazifa', inp2.value);
+    check('kursor o‘rni saqlandi', inp2.selectionStart === 5, inp2.selectionStart);
+    check('fokus saqlandi', document.activeElement === inp2, document.activeElement.className);
+    inp2.value = '';
+    inp2.blur();
+
+    const liveTask = state.tasks.find((t) => t.project_id === p.id && !t.done);
+    ui.editingTask = liveTask.id;
+    render();
+    const ti = q(`input[data-fk="title-${liveTask.id}"]`);
+    ti.focus();
+    ti.value = 'sarlavha o‘zgartirilmoqda';
+    render();
+    check('sarlavha tahriri saqlandi',
+      q(`input[data-fk="title-${liveTask.id}"]`).value === 'sarlavha o‘zgartirilmoqda');
+    ui.editingTask = null;
+    render();
+    check('sarlavha bekorga saqlanmadi', state.tasks.find((t) => t.id === liveTask.id).title === liveTask.title);
+
+    ui.openTask = liveTask.id;
+    render();
+    const ta = q(`textarea[data-fk="note-${liveTask.id}"]`);
+    ta.focus();
+    ta.value = 'yozilayotgan izoh';
+    render();
+    check('izoh matni saqlandi', q(`textarea[data-fk="note-${liveTask.id}"]`).value === 'yozilayotgan izoh');
+    ui.openTask = null;
+    render();
+
     /* --- loyihani o'chirish --- */
     await window.api.project.remove(p.id);
     await reload();
