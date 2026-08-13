@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+Thumbs.db
+
+# lokal baza va vaqtinchalik fayllar
+*.db
+*.db-wal
+*.db-shm
+demo-data/

@@ -1,0 +1,72 @@
+# Vazifalar — loyihalar kesimida ish rejasi
+
+Qog'ozdagi varaqlar o'rniga: har bir loyiha uchun alohida ro'yxat, ichida mavzular,
+mavzular ichida vazifalar. Hammasi bitta daraxt ko'rinishida, bir qarashda ko'rinadi.
+
+Desktop dastur (Electron). Ma'lumotlar **kompyuterning o'zida**, lokal SQLite bazasida
+saqlanadi — server ham, internet ham kerak emas.
+
+## Imkoniyatlar
+
+- **Daraxt ko'rinishi** — Loyiha › Mavzu › Vazifa. "Hammasi" bo'limida barcha loyihalar birdan ko'rinadi.
+- **Muddat (deadline)** — ixtiyoriy sana va vaqt. Muddat yaqinlashganda rangi o'zgaradi:
+  - `⚠ 3 kun kechikdi` — qizil
+  - `🔔 Bugun` — qizil, pulslanadi
+  - `⏰ Ertaga` / `⏰ 2 kun qoldi` — sariq (necha kun oldin ogohlantirish — sozlamalarda)
+  - `📅 payshanba · 4 kun` — kulrang
+- **Tizim bildirishnomasi** — muddati yaqin yoki o'tib ketgan vazifalar haqida Windows
+  bildirishnomasi (dastur ochilganda va har 30 daqiqada bir marta, kuniga bir martadan ko'p emas).
+- **Bajarilgan ishlar** — belgilangan vazifa loyihaning "✓ Bajarilgan" bo'limiga ko'chadi.
+- **Qidiruv** — barcha loyihalar bo'ylab sarlavha, izoh, mavzu va loyiha nomi bo'yicha.
+- **Tez ko'rinishlar** — Bugun, Yaqin 7 kun, Muddati o'tgan.
+- **O'chirish** — vazifa, mavzu yoki butun loyihani. Tasodifiy o'chirilsa "Qaytarish" tugmasi bor.
+- **Sudrab ko'chirish** — vazifani mavzudan mavzuga, loyihadan loyihaga; loyihalar tartibini ham.
+- **Muhimlik** — Oddiy / O'rta / Yuqori.
+- **Izoh** — har bir vazifaga qo'shimcha matn.
+- **Yorug'/qorong'i mavzu**, oyna o'lchami eslab qolinadi.
+- **Zaxira nusxa** — JSON faylga saqlash va fayldan tiklash.
+
+## Tezkor tugmalar
+
+| Tugma | Vazifasi |
+|---|---|
+| `Ctrl + N` | Yangi vazifa (birinchi qo'shish maydoniga o'tadi) |
+| `Ctrl + Shift + N` | Yangi loyiha |
+| `Ctrl + F` | Qidiruv |
+| `Enter` | Vazifani saqlash (qo'shish maydoni ochiq qoladi — ketma-ket yozish uchun) |
+| `Esc` | Qidiruvni tozalash / tafsilotni yopish / oynani yopish |
+
+## Ishga tushirish
+
+```bash
+npm install
+npm start
+```
+
+> Eslatma: agar tizimda `ELECTRON_RUN_AS_NODE=1` o'zgaruvchisi o'rnatilgan bo'lsa,
+> Electron oynasi ochilmaydi. `npm start` buni o'zi hisobga oladi (`scripts/start.js`).
+
+## Tuzilishi
+
+```
+src/
+  main/
+    main.js      Electron oynasi, IPC, bildirishnomalar
+    db.js        SQLite sxemasi va barcha so'rovlar
+    preload.js   Renderer uchun xavfsiz API (contextIsolation)
+  renderer/
+    index.html
+    styles.css
+    app.js       Interfeys: daraxt, qidiruv, tahrirlash, sudrab ko'chirish
+scripts/
+  start.js       Toza muhitda ishga tushirish
+  smoke.js       Tekshiruv rejimi
+  smoke-checks.js
+```
+
+## Ma'lumotlar qayerda?
+
+`%APPDATA%\vazifalar\vazifalar.db` — SQLite fayli.
+Aniq yo'lni dasturning **Sozlamalar** oynasidan ko'rish va papkasini ochish mumkin.
+
+Zaxira nusxa uchun shu faylni nusxalash yoki Sozlamalar → Zaxira nusxa → Saqlash yetarli.

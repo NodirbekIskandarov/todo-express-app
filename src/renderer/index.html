@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>Vazifalar</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- ============================ chap panel ============================ -->
+    <aside id="sidebar">
+      <div class="brand">
+        <span class="brand-mark">✓</span>
+        <span class="brand-text">Vazifalar</span>
+      </div>
+
+      <nav id="views" class="nav-group"></nav>
+
+      <div class="nav-heading">
+        <span>Loyihalar</span>
+        <button id="btn-new-project" class="icon-btn" title="Yangi loyiha (Ctrl+Shift+N)">+</button>
+      </div>
+      <nav id="projects" class="nav-group projects"></nav>
+
+      <div class="sidebar-foot">
+        <button id="btn-settings" class="ghost-btn" title="Sozlamalar">⚙ Sozlamalar</button>
+      </div>
+    </aside>
+
+    <!-- ============================ asosiy qism ============================ -->
+    <main id="main">
+      <header id="topbar">
+        <div class="title-wrap">
+          <h1 id="view-title">Hammasi</h1>
+          <span id="view-sub" class="view-sub"></span>
+        </div>
+
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input id="search" type="text" placeholder="Qidirish…  (Ctrl+F)" autocomplete="off" spellcheck="false" />
+          <button id="search-clear" class="icon-btn subtle" title="Tozalash (Esc)" hidden>×</button>
+        </div>
+
+        <div class="topbar-actions">
+          <button id="btn-expand-all" class="ghost-btn" title="Hammasini yig'ish / yozish">⇕</button>
+          <button id="btn-new-task" class="primary-btn" title="Yangi vazifa (Ctrl+N)">+ Vazifa</button>
+        </div>
+      </header>
+
+      <section id="content" class="content" tabindex="-1"></section>
+    </main>
+  </div>
+
+  <!-- ============================ modal oyna ============================ -->
+  <div id="modal-backdrop" class="modal-backdrop" hidden>
+    <div id="modal" class="modal" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

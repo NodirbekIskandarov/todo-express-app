@@ -1,0 +1,15 @@
+{
+  "name": "vazifalar",
+  "version": "1.0.0",
+  "description": "Loyihalar kesimida vazifalarni boshqarish uchun desktop dastur",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "dist": "node scripts/build.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.4.0"
+  }
+}
