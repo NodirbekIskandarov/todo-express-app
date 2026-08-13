@@ -62,6 +62,9 @@ Qisqacha:
    3. Muddat qo'yish uchun vazifa o'ngidagi  ...  tugmasini bosing.
    4. Bajarilgan ishni yonidagi doiracha bilan belgilang —
       u "Bajarilgan" bo'limiga tushadi.
+   5. Har hafta yoki har oy takrorlanadigan ish bo'lsa, o'sha
+      ...  oynasidan "Takrorlanish" ni tanlang. Bajarilgandan
+      keyin keyingi muddat bilan yangisi o'zi ochiladi.
 
 Muddat yaqinlashganda yozuv rangi o'zgaradi va Windows
 bildirishnomasi chiqadi.

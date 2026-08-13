@@ -132,6 +132,52 @@
     ui.openTask = null;
     render();
 
+    /* --- takrorlanuvchi vazifalar --- */
+    const rsec = state.sections.find((s) => s.project_id === p.id);
+    const mkRep = (title, offset, kind, every, time) => window.api.task.create({
+      projectId: p.id, sectionId: rsec.id, title,
+      dueDate: iso(offset), dueTime: time || null, repeatKind: kind, repeatEvery: every || 1,
+    });
+
+    const wk = await mkRep('Haftalik yig‘ilish', 0, 'weekly', 1, '09:00');
+    await reload();
+    check('takrorlanish belgisi ko‘rinadi',
+      /🔁 har hafta/.test(q(`.task[data-id="${wk.id}"]`)?.textContent || ''),
+      q(`.task[data-id="${wk.id}"]`)?.textContent);
+
+    const wkRes = await window.api.task.update({ id: wk.id, done: true });
+    check('haftalik: keyingi nusxa ochildi', !!wkRes.spawned, wkRes);
+    check('haftalik: muddat +7 kun', wkRes.spawned?.due_date === iso(7), wkRes.spawned?.due_date);
+    check('haftalik: vaqt o‘zgarmadi', wkRes.spawned?.due_time === '09:00', wkRes.spawned?.due_time);
+    check('haftalik: bajarilgani tarixda qoldi', wkRes.done === 1, wkRes.done);
+    check('haftalik: bajarilgani endi takrorlanmaydi', wkRes.repeat_kind === null, wkRes.repeat_kind);
+
+    await reload();
+    check('yangi nusxa ochiq ro‘yxatda', !!q(`.section-body .task[data-id="${wkRes.spawned.id}"]`));
+    check('bajarilgani “Bajarilgan”da', !q(`.section-body .task[data-id="${wk.id}"]`));
+
+    // Bajarilganini qaytarib, yana belgilash ikkinchi nusxa ochmasligi kerak.
+    await window.api.task.update({ id: wk.id, done: false });
+    const twice = await window.api.task.update({ id: wk.id, done: true });
+    check('qayta belgilash ikkilantirmadi', !twice.spawned, twice.spawned);
+
+    const two = await mkRep('Ikki haftada bir', 0, 'weekly', 2);
+    const twoRes = await window.api.task.update({ id: two.id, done: true });
+    check('har 2 haftada: +14 kun', twoRes.spawned?.due_date === iso(14), twoRes.spawned?.due_date);
+
+    const plain = await window.api.task.create({
+      projectId: p.id, sectionId: rsec.id, title: 'Takrorlanmaydigan ish', dueDate: iso(0),
+    });
+    const plainRes = await window.api.task.update({ id: plain.id, done: true });
+    check('oddiy vazifa: nusxa ochilmadi', !plainRes.spawned, plainRes.spawned);
+
+    // Muddatsiz vazifaga takrorlanish qo'yilsa, muddat bugundan boshlanishi kerak.
+    const noDue = await window.api.task.create({
+      projectId: p.id, sectionId: rsec.id, title: 'Muddatsiz takrorlanuvchi',
+    });
+    const withRep = await window.api.task.update({ id: noDue.id, repeatKind: 'monthly' });
+    check('takrorlanish muddatni bugundan boshladi', withRep.due_date === iso(0), withRep.due_date);
+
     /* --- loyihani o'chirish --- */
     await window.api.project.remove(p.id);
     await reload();

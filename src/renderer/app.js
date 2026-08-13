@@ -91,6 +91,16 @@ function dueInfo(task) {
 
 const PRIO = [null, { mark: '⚑', cls: 'p1', name: 'O‘rta' }, { mark: '⚑', cls: 'p2', name: 'Yuqori' }];
 
+const REPEAT_UNITS = { daily: 'kun', weekly: 'hafta', monthly: 'oy', yearly: 'yil' };
+
+/** "har hafta", "har 2 haftada" — vazifa qatorida ko'rsatiladigan yozuv. */
+function repeatLabel(task) {
+  const unit = REPEAT_UNITS[task.repeat_kind];
+  if (!unit) return null;
+  const n = task.repeat_every || 1;
+  return n === 1 ? `har ${unit}` : `har ${n} ${unit}da`;
+}
+
 function projectById(id) { return state.projects.find((p) => p.id === id); }
 function sectionsOf(pid) { return state.sections.filter((s) => s.project_id === pid); }
 function tasksOf(sid) { return state.tasks.filter((t) => t.section_id === sid && !t.done); }
@@ -383,6 +393,8 @@ function renderTask(task, { crumb = false } = {}) {
   } else if (due && task.done) {
     sub.push(`<span class="badge gray">📅 ${esc(formatDate(task.due_date))}</span>`);
   }
+  const rep = repeatLabel(task);
+  if (rep && !task.done) sub.push(`<span class="badge gray" title="Takrorlanuvchi vazifa">🔁 ${esc(rep)}</span>`);
   if (prio) sub.push(`<span class="prio ${prio.cls}" title="Muhimlik: ${prio.name}">${prio.mark}</span>`);
   if (task.note) sub.push(`<span class="note-mark" title="Izoh bor">📝</span>`);
 
@@ -437,6 +449,31 @@ function renderDetail(task) {
         </div>
       </div>
     </div>
+
+    <div class="detail-row">
+      <div class="field">
+        <label>Takrorlanish</label>
+        <div class="chips">
+          ${[['', 'Yo‘q'], ['daily', 'Har kuni'], ['weekly', 'Har hafta'], ['monthly', 'Har oy'], ['yearly', 'Har yil']]
+            .map(([v, n]) => `<button class="chip ${(task.repeat_kind || '') === v ? 'on' : ''}"
+              data-act="set-repeat" data-id="${task.id}" data-value="${v}">${n}</button>`).join('')}
+        </div>
+      </div>
+      ${task.repeat_kind ? `
+      <div class="field">
+        <label>Oraliq</label>
+        <div class="repeat-every">
+          har
+          <input class="input num" type="number" min="1" max="99" value="${task.repeat_every || 1}"
+                 data-act="set-field" data-field="repeatEvery" data-id="${task.id}" data-fk="rep-${task.id}" />
+          ${REPEAT_UNITS[task.repeat_kind]}da bir marta
+        </div>
+      </div>` : ''}
+    </div>
+    ${task.repeat_kind ? `<div class="hint" style="margin-top:-4px">
+      Bajarildi deb belgilaganingizda bu vazifa “Bajarilgan” bo‘limiga tushadi va
+      o‘rniga keyingi muddat bilan yangisi ochiladi${task.due_time ? ` (vaqti ${esc(task.due_time)} bo‘lib qoladi)` : ''}.
+    </div>` : ''}
 
     <div class="detail-row">
       <div class="field">
@@ -598,8 +635,12 @@ document.addEventListener('click', async (e) => {
 
     case 'toggle-done-task': {
       const t = findTask(id);
-      await mutate(() => window.api.task.update({ id, done: !t.done }));
-      if (!t.done) toast(`✓ “${trim(t.title)}” bajarildi deb belgilandi`);
+      const res = await mutate(() => window.api.task.update({ id, done: !t.done }));
+      if (!t.done) {
+        toast(res && res.spawned
+          ? `✓ Bajarildi. Keyingisi: ${formatDate(res.spawned.due_date)}`
+          : `✓ “${trim(t.title)}” bajarildi deb belgilandi`);
+      }
       break;
     }
 
@@ -624,6 +665,7 @@ document.addEventListener('click', async (e) => {
           const nt = await window.api.task.create({
             projectId: t.project_id, sectionId: t.section_id, title: t.title,
             note: t.note, dueDate: t.due_date, dueTime: t.due_time, priority: t.priority,
+            repeatKind: t.repeat_kind, repeatEvery: t.repeat_every,
           });
           if (t.done) await window.api.task.update({ id: nt.id, done: true });
         });
@@ -637,6 +679,10 @@ document.addEventListener('click', async (e) => {
 
     case 'set-prio':
       await mutate(() => window.api.task.update({ id, priority: Number(el.dataset.value) }));
+      break;
+
+    case 'set-repeat':
+      await mutate(() => window.api.task.update({ id, repeatKind: el.dataset.value || null }));
       break;
 
     case 'add-section': {
@@ -740,6 +786,7 @@ async function restoreSnapshot(snapshot) {
       const nt = await window.api.task.create({
         projectId: np.id, sectionId: map.get(t.section_id) || fallback, title: t.title,
         note: t.note, dueDate: t.due_date, dueTime: t.due_time, priority: t.priority,
+        repeatKind: t.repeat_kind, repeatEvery: t.repeat_every,
       });
       if (t.done) await window.api.task.update({ id: nt.id, done: true });
     }
@@ -1260,20 +1307,34 @@ const HELP_HTML = `
   </div>
 
   <div class="help-block">
-    <div class="help-title">5. Bajarilgan ishni belgilash</div>
+    <div class="help-title">5. Har hafta / har oy takrorlanadigan ishlar</div>
+    <p>Bir xil ish qayta-qayta takrorlansa (masalan “Dushanba yig‘ilishi” yoki
+    “Oylik hisobot”), uni har safar qaytadan yozish shart emas.</p>
+    <p><b>⋯</b> tugmasini bosib, <b>Takrorlanish</b> qatoridan
+    <b>Har kuni / Har hafta / Har oy / Har yil</b> ni tanlang. Kerak bo‘lsa oraliqni
+    o‘zgartiring — “har 2 haftada”, “har 3 oyda”.</p>
+    <p>Ishni bajarildi deb belgilaganingizda u <b>“Bajarilgan”</b> bo‘limiga tushadi
+    va o‘rniga <b>keyingi muddat bilan yangisi o‘zi ochiladi</b>. Sana qo‘shib
+    vaqt ham qo‘ygan bo‘lsangiz (masalan 09:00), vaqt o‘zgarmaydi.</p>
+    <p class="hint">Hafta kuni muddatdan olinadi: dushanbaga qo‘yilgan haftalik ish
+    har dushanba takrorlanadi — kechikib bajarsangiz ham dushanbaligicha qoladi.</p>
+  </div>
+
+  <div class="help-block">
+    <div class="help-title">6. Bajarilgan ishni belgilash</div>
     <p>Vazifa yonidagi <b>doiracha</b>ni bosing. Ish ro‘yxatdan chiqib, o‘sha loyihaning
     pastidagi <b>“✓ Bajarilgan”</b> bo‘limiga tushadi. U yerdan qaytarib olsa ham bo‘ladi.</p>
   </div>
 
   <div class="help-block">
-    <div class="help-title">6. Topa olmayapsizmi?</div>
+    <div class="help-title">7. Topa olmayapsizmi?</div>
     <p><b>Ctrl + F</b> bosing va so‘zni yozing — barcha loyihalar bo‘ylab qidiradi.
     Chapdagi <b>Bugun</b>, <b>Yaqin 7 kun</b>, <b>Muddati o‘tgan</b> bo‘limlari esa
     shoshilinch ishlarni bir joyga yig‘adi.</p>
   </div>
 
   <div class="help-block">
-    <div class="help-title">7. O‘chirish va qaytarish</div>
+    <div class="help-title">8. O‘chirish va qaytarish</div>
     <p>Har bir vazifa, mavzu va loyihada <b>🗑</b> tugmasi bor. Xato o‘chirilsa,
     pastda chiqadigan <b>“Qaytarish”</b> tugmasini bosing.</p>
   </div>

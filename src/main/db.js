@@ -8,6 +8,7 @@ let db = null;
 
 /** Bazani ochadi va sxemani tayyorlaydi. */
 function init(userDataDir) {
+  close(); // qayta chaqirilsa eski ulanish ochiq qolib ketmasin
   fs.mkdirSync(userDataDir, { recursive: true });
   const file = path.join(userDataDir, 'vazifalar.db');
   db = new DatabaseSync(file);
@@ -47,6 +48,8 @@ function migrate() {
       due_date      TEXT,
       due_time      TEXT,
       priority      INTEGER NOT NULL DEFAULT 0,
+      repeat_kind   TEXT,
+      repeat_every  INTEGER NOT NULL DEFAULT 1,
       done          INTEGER NOT NULL DEFAULT 0,
       done_at       TEXT,
       position      REAL    NOT NULL DEFAULT 0,
@@ -64,6 +67,21 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_tasks_due     ON tasks(due_date) WHERE done = 0;
     CREATE INDEX IF NOT EXISTS idx_sections_proj ON sections(project_id);
   `);
+
+  // Eski versiyada yaratilgan bazalarga yangi ustunlarni qo'shish.
+  ensureColumn('tasks', 'repeat_kind', 'repeat_kind TEXT');
+  ensureColumn('tasks', 'repeat_every', 'repeat_every INTEGER NOT NULL DEFAULT 1');
+}
+
+function close() {
+  if (!db) return;
+  try { db.close(); } catch { /* allaqachon yopilgan */ }
+  db = null;
+}
+
+function ensureColumn(table, column, ddl) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
 }
 
 function seedIfEmpty() {
@@ -83,6 +101,48 @@ function todayISO() {
 
 function nowISO() {
   return new Date().toISOString();
+}
+
+/* -------------------------------------------------- takrorlanish (recurring) */
+
+const REPEAT_KINDS = ['daily', 'weekly', 'monthly', 'yearly'];
+
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Oy qo'shish. Kerakli kun yo'q bo'lsa (31-fevral) — oyning oxirgi kuniga tushadi. */
+function addMonths(date, n) {
+  const day = date.getDate();
+  const d = new Date(date.getFullYear(), date.getMonth() + n, 1);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return d;
+}
+
+/**
+ * Takrorlanuvchi vazifaning keyingi muddati.
+ * Hisob joriy muddatdan boshlanadi — shunda "har dushanba" dushanbaligicha qoladi,
+ * kechikib bajarilsa ham. Natija bugundan keyinga tushguncha oldinga suriladi.
+ */
+function nextDueDate(iso, kind, every) {
+  if (!iso || !REPEAT_KINDS.includes(kind)) return null;
+  const step = Math.min(99, Math.max(1, Number(every) || 1));
+  const [y, m, d] = iso.split('-').map(Number);
+  let date = new Date(y, m - 1, d);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let guard = 0; guard < 600; guard++) {
+    if (kind === 'daily') date.setDate(date.getDate() + step);
+    else if (kind === 'weekly') date.setDate(date.getDate() + 7 * step);
+    else if (kind === 'monthly') date = addMonths(date, step);
+    else date = addMonths(date, 12 * step);
+
+    if (date > today) break;
+  }
+  return fmtDate(date);
 }
 
 /** Ro'yxat oxiriga qo'yish uchun keyingi position qiymati. */
@@ -188,18 +248,25 @@ function listTasks({ projectId = null, includeDone = true } = {}) {
   return db.prepare(sql).all(...params);
 }
 
-function createTask({ projectId, sectionId, title, note = '', dueDate = null, dueTime = null, priority = 0 }) {
+function createTask({
+  projectId, sectionId, title, note = '', dueDate = null, dueTime = null,
+  priority = 0, repeatKind = null, repeatEvery = 1,
+}) {
   const pos = nextPos('tasks', 'WHERE section_id = ? AND done = 0', [sectionId]);
   const info = db.prepare(`
-    INSERT INTO tasks (project_id, section_id, title, note, due_date, due_time, priority, position)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(projectId, sectionId, title.trim(), note, dueDate || null, dueTime || null, priority, pos);
+    INSERT INTO tasks (project_id, section_id, title, note, due_date, due_time,
+                       priority, repeat_kind, repeat_every, position)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(projectId, sectionId, title.trim(), note, dueDate || null, dueTime || null,
+    priority, REPEAT_KINDS.includes(repeatKind) ? repeatKind : null,
+    Math.min(99, Math.max(1, Number(repeatEvery) || 1)), pos);
   return db.prepare('SELECT * FROM tasks WHERE id = ?').get(Number(info.lastInsertRowid));
 }
 
 const TASK_FIELDS = {
   title: 'title', note: 'note', dueDate: 'due_date', dueTime: 'due_time',
   priority: 'priority', sectionId: 'section_id', projectId: 'project_id',
+  repeatKind: 'repeat_kind', repeatEvery: 'repeat_every',
 };
 
 function updateTask(patch) {
@@ -208,30 +275,64 @@ function updateTask(patch) {
 
   const sets = [];
   const params = [];
+  const put = (col, value) => { sets.push(`${col} = ?`); params.push(value); };
+
   for (const [key, col] of Object.entries(TASK_FIELDS)) {
     if (patch[key] === undefined) continue;
-    sets.push(`${col} = ?`);
-    params.push(typeof patch[key] === 'string' && key === 'title' ? patch[key].trim() : (patch[key] ?? null));
+    let value = patch[key];
+    if (key === 'title') value = String(value).trim();
+    if (key === 'repeatKind') value = REPEAT_KINDS.includes(value) ? value : null;
+    if (key === 'repeatEvery') value = Math.min(99, Math.max(1, Number(value) || 1));
+    put(col, value ?? null);
+  }
+
+  // Takrorlanish muddatsiz ma'noga ega emas — sana bo'lmasa, bugundan boshlanadi.
+  if (patch.repeatKind && REPEAT_KINDS.includes(patch.repeatKind) && !cur.due_date && patch.dueDate === undefined) {
+    put('due_date', todayISO());
   }
   // Muddat o'zgarsa, ogohlantirish qaytadan yuborilishi kerak.
   if (patch.dueDate !== undefined && patch.dueDate !== cur.due_date) sets.push('last_notified = NULL');
 
+  // Bajarilgan deb belgilangan takrorlanuvchi vazifa: bajarilgani tarixda qoladi,
+  // o'rniga keyingi muddat bilan yangi nusxa ochiladi.
+  let spawned = null;
+  const repeats = patch.done === true && cur.done === 0 && REPEAT_KINDS.includes(cur.repeat_kind);
+  const nextDate = repeats ? nextDueDate(cur.due_date || todayISO(), cur.repeat_kind, cur.repeat_every) : null;
+
   if (patch.done !== undefined) {
     const done = patch.done ? 1 : 0;
-    sets.push('done = ?'); params.push(done);
-    sets.push('done_at = ?'); params.push(done ? nowISO() : null);
+    put('done', done);
+    put('done_at', done ? nowISO() : null);
     if (done) {
       // Bajarilganlar ro'yxatining boshiga chiqsin (eng oxirgi bajarilgan — tepada).
-      sets.push('position = ?'); params.push(-Date.now());
+      put('position', -Date.now());
+      // Takrorlanish yangi nusxaga o'tadi, aks holda qayta belgilanganda ikkilanadi.
+      if (nextDate) put('repeat_kind', null);
     } else {
-      sets.push('position = ?'); params.push(nextPos('tasks', 'WHERE section_id = ? AND done = 0', [cur.section_id]));
+      put('position', nextPos('tasks', 'WHERE section_id = ? AND done = 0', [cur.section_id]));
     }
   }
   if (!sets.length) return cur;
 
   params.push(patch.id);
   db.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).run(...params);
-  return db.prepare('SELECT * FROM tasks WHERE id = ?').get(patch.id);
+
+  if (nextDate) {
+    spawned = createTask({
+      projectId: cur.project_id,
+      sectionId: cur.section_id,
+      title: cur.title,
+      note: cur.note,
+      dueDate: nextDate,
+      dueTime: cur.due_time,
+      priority: cur.priority,
+      repeatKind: cur.repeat_kind,
+      repeatEvery: cur.repeat_every,
+    });
+  }
+
+  const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(patch.id);
+  return spawned ? { ...row, spawned } : row;
 }
 
 function deleteTask(id) {
@@ -367,8 +468,15 @@ function importAll(data) {
           dueDate: t.due_date,
           dueTime: t.due_time,
           priority: t.priority || 0,
+          repeatKind: t.repeat_kind || null,
+          repeatEvery: t.repeat_every || 1,
         });
-        if (t.done) updateTask({ id: nt.id, done: true });
+        // done=true bilan yangilash takrorlanuvchi vazifada keyingi nusxani
+        // ochib yuboradi — zaxiradan tiklashda bu keraksiz, shuning uchun to'g'ridan-to'g'ri.
+        if (t.done) {
+          db.prepare("UPDATE tasks SET done = 1, done_at = ?, repeat_kind = NULL, position = ? WHERE id = ?")
+            .run(t.done_at || nowISO(), -Date.now(), nt.id);
+        }
         stats.tasks++;
       }
     }
@@ -381,7 +489,7 @@ function importAll(data) {
 }
 
 module.exports = {
-  init,
+  init, close,
   getState,
   listProjects, createProject, updateProject, deleteProject, reorderProjects,
   listSections, createSection, updateSection, deleteSection, reorderSections,
@@ -389,4 +497,5 @@ module.exports = {
   getSettings, setSetting,
   tasksNeedingReminder, markNotified,
   exportAll, importAll,
+  nextDueDate, // tekshiruvlar uchun
 };

@@ -16,6 +16,11 @@ saqlanadi — server ham, internet ham kerak emas.
   - `📅 payshanba · 4 kun` — kulrang
 - **Tizim bildirishnomasi** — muddati yaqin yoki o'tib ketgan vazifalar haqida Windows
   bildirishnomasi (dastur ochilganda va har 30 daqiqada bir marta, kuniga bir martadan ko'p emas).
+- **Takrorlanuvchi ishlar** — har kuni / har hafta / har oy / har yil, ixtiyoriy oraliq bilan
+  ("har 2 haftada", "har 3 oyda"). Bajarilgan deb belgilanganda vazifa "Bajarilgan"ga tushadi
+  va o'rniga keyingi muddat bilan yangisi ochiladi; **vaqti (masalan 09:00) saqlanadi**.
+  Hisob rejalashtirilgan muddatdan olinadi — kechikib bajarilsa ham "har dushanba"
+  dushanbaligicha qoladi. Oy oxiri to'g'ri hisoblanadi (31-yanvar → 28/29-fevral).
 - **Bajarilgan ishlar** — belgilangan vazifa loyihaning "✓ Bajarilgan" bo'limiga ko'chadi.
 - **Qidiruv** — barcha loyihalar bo'ylab sarlavha, izoh, mavzu va loyiha nomi bo'yicha.
 - **Tez ko'rinishlar** — Bugun, Yaqin 7 kun, Muddati o'tgan.
@@ -76,7 +81,8 @@ ko'rsatadi — `OQING.txt` da buni qanday o'tish yozilgan (Подробнее �
 ## Tekshiruv
 
 ```bash
-node scripts/smoke.js        # 22 ta funksional tekshiruv
+node scripts/db-test.js      # 18 ta tekshiruv: migratsiya + takrorlanish sanasi (Electron kerak emas)
+node scripts/smoke.js        # 40 ta funksional tekshiruv (interfeys bilan birga)
 node scripts/make-icon.js    # build/icon.ico ni qayta yasash
 ```
 
