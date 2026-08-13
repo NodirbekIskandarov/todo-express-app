@@ -141,9 +141,13 @@
 
     const wk = await mkRep('Haftalik yig‘ilish', 0, 'weekly', 1, '09:00');
     await reload();
-    check('takrorlanish belgisi ko‘rinadi',
-      /🔁 har hafta/.test(q(`.task[data-id="${wk.id}"]`)?.textContent || ''),
-      q(`.task[data-id="${wk.id}"]`)?.textContent);
+    // Belgi hafta kunini ko'rsatishi kerak: "har payshanba" kabi.
+    const wkLabel = repeatLabel({ repeat_kind: 'weekly', due_date: iso(0) });
+    check('takrorlanish belgisi hafta kunini ko‘rsatadi',
+      (q(`.task[data-id="${wk.id}"]`)?.textContent || '').includes(`🔁 ${wkLabel}`),
+      `kutilgan: ${wkLabel}`);
+    check('qatorda vaqt ham ko‘rinadi',
+      /09:00/.test(q(`.task[data-id="${wk.id}"]`)?.textContent || ''));
 
     const wkRes = await window.api.task.update({ id: wk.id, done: true });
     check('haftalik: keyingi nusxa ochildi', !!wkRes.spawned, wkRes);
@@ -177,6 +181,57 @@
     });
     const withRep = await window.api.task.update({ id: noDue.id, repeatKind: 'monthly' });
     check('takrorlanish muddatni bugundan boshladi', withRep.due_date === iso(0), withRep.due_date);
+
+    /* --- hafta kuni / oy sanasi / aniq vaqt --- */
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    check('hafta kuni hisobi to‘g‘ri', weekdayOf(nextDateForWeekday(4)) === 4, nextDateForWeekday(4));
+    check('hafta kuni o‘tmishga tushmaydi', nextDateForWeekday(4) >= iso(0), nextDateForWeekday(4));
+    check('oy sanasi hisobi to‘g‘ri', monthDayOf(nextDateForMonthDay(15)) === 15, nextDateForMonthDay(15));
+    check('oy sanasi o‘tmishga tushmaydi', nextDateForMonthDay(15) >= iso(0), nextDateForMonthDay(15));
+
+    check('yozuv: har dushanba',
+      repeatLabel({ repeat_kind: 'weekly', due_date: nextDateForWeekday(1) }) === 'har dushanba',
+      repeatLabel({ repeat_kind: 'weekly', due_date: nextDateForWeekday(1) }));
+    check('yozuv: har oyning 5-sanasi',
+      repeatLabel({ repeat_kind: 'monthly', due_date: nextDateForMonthDay(5) }) === 'har oyning 5-sanasi',
+      repeatLabel({ repeat_kind: 'monthly', due_date: nextDateForMonthDay(5) }));
+
+    // Takrorlanish tanlanganda aniq vaqt o'zi qo'yilishi kerak.
+    const auto = await window.api.task.create({ projectId: p.id, sectionId: rsec.id, title: 'Vaqtsiz takrorlanuvchi' });
+    await reload();
+    ui.openTask = auto.id;
+    render();
+    q(`[data-act="set-repeat"][data-id="${auto.id}"][data-value="daily"]`).click();
+    await sleep(500);
+    const autoAfter = state.tasks.find((t) => t.id === auto.id);
+    check('takrorlanish tanlanganda 09:00 qo‘yildi',
+      autoAfter.due_time === '09:00' && autoAfter.due_date === iso(0),
+      `${autoAfter.due_date} ${autoAfter.due_time}`);
+
+    // Haftalik: hafta kuni tugmalari chiqadi va tanlash sanani o'zgartiradi.
+    const wk2 = await mkRep('Haftalik yig‘ilish 2', 0, 'weekly', 1, '10:30');
+    await reload();
+    ui.openTask = wk2.id;
+    render();
+    check('hafta kuni tugmalari chiqdi',
+      document.querySelectorAll(`[data-act="set-weekday"][data-id="${wk2.id}"]`).length === 7);
+    q(`[data-act="set-weekday"][data-id="${wk2.id}"][data-value="4"]`).click();
+    await sleep(500);
+    const wk2After = state.tasks.find((t) => t.id === wk2.id);
+    check('payshanba tanlandi', weekdayOf(wk2After.due_date) === 4, wk2After.due_date);
+    check('hafta kuni o‘zgarganda vaqt saqlandi', wk2After.due_time === '10:30', wk2After.due_time);
+
+    // Oylik: sana ro'yxati chiqadi.
+    const mo2 = await mkRep('Oylik hisobot 2', 0, 'monthly', 1, '09:15');
+    await reload();
+    ui.openTask = mo2.id;
+    render();
+    const sel = q(`select[data-act="set-monthday"][data-id="${mo2.id}"]`);
+    check('oy sanasi ro‘yxati chiqdi', !!sel && sel.options.length === 31, sel && sel.options.length);
+    check('joriy sana tanlangan', sel && Number(sel.value) === monthDayOf(mo2.due_date), sel && sel.value);
+    ui.openTask = null;
+    render();
 
     /* --- loyihani o'chirish --- */
     await window.api.project.remove(p.id);

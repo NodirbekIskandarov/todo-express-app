@@ -504,14 +504,18 @@ input, textarea { user-select: text; }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 textarea.input { resize: vertical; min-height: 62px; width: 100%; font-family: inherit; }
 
-.repeat-every {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-soft);
-  white-space: nowrap;
+/* Takrorlanish sozlamalari — asosiy maydonlardan ajralib tursin. */
+.repeat-box {
+  margin-top: -2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-sunken);
+  display: grid;
+  gap: 8px;
 }
-.input.num { width: 58px; text-align: center; }
+.repeat-box .detail-row { gap: 14px; }
+.repeat-box .chip { min-width: 34px; padding: 4px 8px; }
 
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {

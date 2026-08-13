@@ -93,12 +93,65 @@ const PRIO = [null, { mark: '⚑', cls: 'p1', name: 'O‘rta' }, { mark: '⚑', 
 
 const REPEAT_UNITS = { daily: 'kun', weekly: 'hafta', monthly: 'oy', yearly: 'yil' };
 
-/** "har hafta", "har 2 haftada" — vazifa qatorida ko'rsatiladigan yozuv. */
+/** Muddat sanasidan hafta kunini oladi (0 = yakshanba). */
+function weekdayOf(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+function monthDayOf(iso) {
+  return Number(iso.split('-')[2]);
+}
+
+/** Sanani ISO ko'rinishga o'giradi. */
+function isoOf(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** Tanlangan hafta kuniga to'g'ri keladigan eng yaqin sana (bugundan boshlab). */
+function nextDateForWeekday(weekday) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + ((weekday - d.getDay() + 7) % 7));
+  return isoOf(d);
+}
+
+/** Oyning tanlangan sanasi. O'tib ketgan bo'lsa — keyingi oy. Qisqa oyda oxirgi kunga tushadi. */
+function nextDateForMonthDay(day) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const lastThis = new Date(y, m + 1, 0).getDate();
+  const thisMonth = new Date(y, m, Math.min(day, lastThis));
+  if (thisMonth >= now) return isoOf(thisMonth);
+  const lastNext = new Date(y, m + 2, 0).getDate();
+  return isoOf(new Date(y, m + 1, Math.min(day, lastNext)));
+}
+
+/** "har dushanba", "har oyning 5-sanasi" — vazifa qatorida ko'rsatiladigan yozuv. */
 function repeatLabel(task) {
-  const unit = REPEAT_UNITS[task.repeat_kind];
-  if (!unit) return null;
-  const n = task.repeat_every || 1;
-  return n === 1 ? `har ${unit}` : `har ${n} ${unit}da`;
+  if (!task.repeat_kind || !task.due_date) return REPEAT_UNITS[task.repeat_kind] ? 'har ' + REPEAT_UNITS[task.repeat_kind] : null;
+  switch (task.repeat_kind) {
+    case 'daily': return 'har kuni';
+    case 'weekly': return `har ${WEEKDAYS[weekdayOf(task.due_date)]}`;
+    case 'monthly': return `har oyning ${monthDayOf(task.due_date)}-sanasi`;
+    case 'yearly': {
+      const [, m, d] = task.due_date.split('-').map(Number);
+      return `har yili ${d}-${MONTHS[m - 1]}`;
+    }
+    default: return null;
+  }
+}
+
+/** Tafsilot oynasidagi tushuntirish: qachon va soat nechada eslatiladi. */
+function repeatSummary(task) {
+  const when = repeatLabel(task);
+  if (!when) return '';
+  const time = task.due_time
+    ? `soat <b>${esc(task.due_time)}</b> da`
+    : 'ertalab <b>9:00</b> da (vaqt belgilanmagan)';
+  return `<b>${esc(when)}</b>, ${time} eslatiladi.`;
 }
 
 function projectById(id) { return state.projects.find((p) => p.id === id); }
@@ -414,6 +467,52 @@ function renderTask(task, { crumb = false } = {}) {
   ${isOpen ? renderDetail(task) : ''}`;
 }
 
+// Dushanbadan boshlanadigan tartib (JS'da 0 = yakshanba).
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const WEEK_SHORT = { 1: 'Du', 2: 'Se', 3: 'Ch', 4: 'Pa', 5: 'Ju', 6: 'Sh', 0: 'Ya' };
+
+/** Takrorlanish sozlamalari: hafta kuni / oy sanasi va aniq vaqt. */
+function renderRepeatBox(task) {
+  const kind = task.repeat_kind;
+  const wd = task.due_date ? weekdayOf(task.due_date) : null;
+  const md = task.due_date ? monthDayOf(task.due_date) : null;
+
+  const weekdayRow = kind !== 'weekly' ? '' : `
+    <div class="field">
+      <label>Hafta kuni</label>
+      <div class="chips">
+        ${WEEK_ORDER.map((n) => `<button class="chip ${wd === n ? 'on' : ''}"
+          data-act="set-weekday" data-id="${task.id}" data-value="${n}"
+          title="${esc(WEEKDAYS[n])}">${WEEK_SHORT[n]}</button>`).join('')}
+      </div>
+    </div>`;
+
+  const monthDayRow = kind !== 'monthly' ? '' : `
+    <div class="field">
+      <label>Oyning sanasi</label>
+      <select class="input" data-act="set-monthday" data-id="${task.id}">
+        ${Array.from({ length: 31 }, (_, i) => i + 1).map((n) =>
+          `<option value="${n}" ${md === n ? 'selected' : ''}>${n}-sana</option>`).join('')}
+      </select>
+    </div>`;
+
+  return `
+    <div class="repeat-box">
+      <div class="detail-row">
+        ${weekdayRow}
+        ${monthDayRow}
+        <div class="field">
+          <label>Eslatma vaqti</label>
+          <input class="input" type="time" value="${esc(task.due_time || '')}"
+                 data-act="set-field" data-field="dueTime" data-id="${task.id}" />
+        </div>
+      </div>
+      <div class="hint">${repeatSummary(task)}
+        Bajarildi deb belgilaganingizda bu vazifa “Bajarilgan” bo‘limiga tushadi va
+        o‘rniga keyingisi shu kun va vaqt bilan ochiladi.</div>
+    </div>`;
+}
+
 function renderDetail(task) {
   const opts = state.projects.map((p) => {
     const inner = sectionsOf(p.id).map((s) =>
@@ -459,21 +558,8 @@ function renderDetail(task) {
               data-act="set-repeat" data-id="${task.id}" data-value="${v}">${n}</button>`).join('')}
         </div>
       </div>
-      ${task.repeat_kind ? `
-      <div class="field">
-        <label>Oraliq</label>
-        <div class="repeat-every">
-          har
-          <input class="input num" type="number" min="1" max="99" value="${task.repeat_every || 1}"
-                 data-act="set-field" data-field="repeatEvery" data-id="${task.id}" data-fk="rep-${task.id}" />
-          ${REPEAT_UNITS[task.repeat_kind]}da bir marta
-        </div>
-      </div>` : ''}
     </div>
-    ${task.repeat_kind ? `<div class="hint" style="margin-top:-4px">
-      Bajarildi deb belgilaganingizda bu vazifa “Bajarilgan” bo‘limiga tushadi va
-      o‘rniga keyingi muddat bilan yangisi ochiladi${task.due_time ? ` (vaqti ${esc(task.due_time)} bo‘lib qoladi)` : ''}.
-    </div>` : ''}
+    ${task.repeat_kind ? renderRepeatBox(task) : ''}
 
     <div class="detail-row">
       <div class="field">
@@ -681,8 +767,22 @@ document.addEventListener('click', async (e) => {
       await mutate(() => window.api.task.update({ id, priority: Number(el.dataset.value) }));
       break;
 
-    case 'set-repeat':
-      await mutate(() => window.api.task.update({ id, repeatKind: el.dataset.value || null }));
+    case 'set-repeat': {
+      const kind = el.dataset.value || null;
+      const t = findTask(id);
+      const patch = { id, repeatKind: kind };
+      // Takrorlanuvchi ish aniq kun va aniq vaqtga bog'lanadi, aks holda
+      // "har kuni" ning qachonligi noaniq bo'lib qoladi.
+      if (kind) {
+        if (!t.due_date) patch.dueDate = todayISO();
+        if (!t.due_time) patch.dueTime = '09:00';
+      }
+      await mutate(() => window.api.task.update(patch));
+      break;
+    }
+
+    case 'set-weekday':
+      await mutate(() => window.api.task.update({ id, dueDate: nextDateForWeekday(Number(el.dataset.value)) }));
       break;
 
     case 'add-section': {
@@ -843,6 +943,15 @@ async function commitTitle(el) {
 /* ---------- tafsilot maydonlari ---------- */
 
 document.addEventListener('change', async (e) => {
+  const md = e.target.closest('[data-act="set-monthday"]');
+  if (md) {
+    await mutate(() => window.api.task.update({
+      id: Number(md.dataset.id),
+      dueDate: nextDateForMonthDay(Number(md.value)),
+    }));
+    return;
+  }
+
   const el = e.target.closest('[data-act="set-field"]');
   if (!el) return;
   const id = Number(el.dataset.id);
@@ -1351,8 +1460,14 @@ const HELP_HTML = `
     <p>Bir xil ish qayta-qayta takrorlansa (masalan “Dushanba yig‘ilishi” yoki
     “Oylik hisobot”), uni har safar qaytadan yozish shart emas.</p>
     <p><b>⋯</b> tugmasini bosib, <b>Takrorlanish</b> qatoridan
-    <b>Har kuni / Har hafta / Har oy / Har yil</b> ni tanlang. Kerak bo‘lsa oraliqni
-    o‘zgartiring — “har 2 haftada”, “har 3 oyda”.</p>
+    <b>Har kuni / Har hafta / Har oy / Har yil</b> ni tanlang. Shundan keyin pastda
+    aniq sozlash chiqadi:</p>
+    <table class="help-table">
+      <tr><td><b>Har kuni</b></td><td>eslatma vaqti — masalan har kuni 09:00</td></tr>
+      <tr><td><b>Har hafta</b></td><td>hafta kuni + vaqt — masalan har dushanba 10:30</td></tr>
+      <tr><td><b>Har oy</b></td><td>oyning sanasi + vaqt — masalan har oyning 5-sanasi 09:00</td></tr>
+      <tr><td><b>Har yil</b></td><td>muddat sanasi + vaqt</td></tr>
+    </table>
     <p>Ishni bajarildi deb belgilaganingizda u <b>“Bajarilgan”</b> bo‘limiga tushadi
     va o‘rniga <b>keyingi muddat bilan yangisi o‘zi ochiladi</b>. Sana qo‘shib
     vaqt ham qo‘ygan bo‘lsangiz (masalan 09:00), vaqt o‘zgarmaydi.</p>

@@ -24,6 +24,7 @@ if (!app.requestSingleInstanceLock()) {
 
 let win = null;
 let reminderWin = null;
+let reminderBatch = [];   // ko'rsatilayotgan eslatmalar: {id, remindAt}
 let dbFile = null;
 let reminderTimer = null;
 
@@ -141,7 +142,7 @@ function debounce(fn, ms) {
 function checkReminders() {
   const s = settings();
   if (!s.notificationsOn) return 0;
-  const due = duePending(db.tasksNeedingReminder(s.remindDays), s.remindDays);
+  const due = duePending(db.openDatedTasks(), s.remindDays);
   if (!due.length) return 0;
   showReminderWindow(due);
   return due.length;
@@ -162,6 +163,12 @@ function startReminderLoop() {
  * "Focus assist" kabi tizim sozlamalari uni to'sib qo'ymaydi.
  */
 function showReminderWindow(tasks) {
+  // "OK" bosilganda aynan shu paytni yozamiz — shunda keyingi payt kelganda
+  // (masalan ertalabki ogohlantirishdan keyin bugungi 18:09) yana eslatiladi.
+  reminderBatch = tasks
+    .filter((t) => t.id > 0)
+    .map((t) => ({ id: t.id, remindAt: t.remindAt || new Date().toISOString() }));
+
   const payload = {
     theme: settings().theme || 'system',
     tasks: tasks.map((t) => ({
@@ -219,8 +226,9 @@ function showReminderWindow(tasks) {
   reminderWin.on('closed', () => { reminderWin = null; });
 }
 
-function closeReminderWindow(markIds) {
-  if (Array.isArray(markIds) && markIds.length) db.markNotified(markIds);
+function closeReminderWindow() {
+  db.markNotified(reminderBatch);
+  reminderBatch = [];
   if (reminderWin && !reminderWin.isDestroyed()) reminderWin.destroy();
   reminderWin = null;
   if (win && !win.isDestroyed()) win.webContents.send('data-changed');
@@ -269,10 +277,10 @@ function registerIpc() {
 
   handle('reminders:check', () => checkReminders());
 
-  handle('reminder:ok', (ids) => { closeReminderWindow(ids); return true; });
+  handle('reminder:ok', () => { closeReminderWindow(); return true; });
 
-  handle('reminder:open', (ids) => {
-    closeReminderWindow(ids);
+  handle('reminder:open', () => {
+    closeReminderWindow();
     if (win && !win.isDestroyed()) {
       if (win.isMinimized()) win.restore();
       win.show();

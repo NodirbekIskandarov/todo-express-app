@@ -290,8 +290,10 @@ function updateTask(patch) {
   if (patch.repeatKind && REPEAT_KINDS.includes(patch.repeatKind) && !cur.due_date && patch.dueDate === undefined) {
     put('due_date', todayISO());
   }
-  // Muddat o'zgarsa, ogohlantirish qaytadan yuborilishi kerak.
-  if (patch.dueDate !== undefined && patch.dueDate !== cur.due_date) sets.push('last_notified = NULL');
+  // Muddat yoki VAQT o'zgarsa, eslatma qaytadan chiqishi kerak.
+  const rescheduled = (patch.dueDate !== undefined && patch.dueDate !== cur.due_date)
+    || (patch.dueTime !== undefined && (patch.dueTime || null) !== cur.due_time);
+  if (rescheduled) sets.push('last_notified = NULL');
 
   // Bajarilgan deb belgilangan takrorlanuvchi vazifa: bajarilgani tarixda qoladi,
   // o'rniga keyingi muddat bilan yangi nusxa ochiladi.
@@ -399,26 +401,27 @@ function setSetting(key, value) {
 /* --------------------------------------------------------- ogohlantirish uchun */
 
 /**
- * Muddati yaqinlashgan yoki o'tib ketgan, bugun hali eslatilmagan vazifalar.
- * @param {number} withinDays necha kun oldin ogohlantirish kerak
+ * Muddati bor barcha ochiq vazifalar. Qaysi biriga eslatma kerakligini
+ * reminders.js hal qiladi — sana/vaqt hisobi bir joyda turgani ma'qul.
  */
-function tasksNeedingReminder(withinDays) {
+function openDatedTasks() {
   return db.prepare(`
     SELECT t.*, p.name AS project_name
     FROM tasks t
     JOIN projects p ON p.id = t.project_id
-    WHERE t.done = 0
-      AND t.due_date IS NOT NULL
-      AND date(t.due_date) <= date('now', 'localtime', '+' || ? || ' days')
-      AND (t.last_notified IS NULL OR t.last_notified < date('now', 'localtime'))
+    WHERE t.done = 0 AND t.due_date IS NOT NULL
     ORDER BY t.due_date, t.due_time
-  `).all(String(withinDays));
+  `).all();
 }
 
-function markNotified(ids) {
-  if (!ids.length) return;
-  const stmt = db.prepare("UPDATE tasks SET last_notified = date('now', 'localtime') WHERE id = ?");
-  for (const id of ids) stmt.run(id);
+/**
+ * Eslatilgan deb belgilaydi.
+ * @param {Array<{id:number, remindAt:string}>} entries eslatma payti bilan
+ */
+function markNotified(entries) {
+  if (!entries || !entries.length) return;
+  const stmt = db.prepare('UPDATE tasks SET last_notified = ? WHERE id = ?');
+  for (const e of entries) stmt.run(e.remindAt || new Date().toISOString(), e.id);
 }
 
 /* ------------------------------------------------------- zaxira nusxa (backup) */
@@ -495,7 +498,7 @@ module.exports = {
   listSections, createSection, updateSection, deleteSection, reorderSections,
   listTasks, createTask, updateTask, deleteTask, moveTask, clearDone,
   getSettings, setSetting,
-  tasksNeedingReminder, markNotified,
+  openDatedTasks, markNotified,
   exportAll, importAll,
   nextDueDate, // tekshiruvlar uchun
 };

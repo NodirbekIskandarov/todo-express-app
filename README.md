@@ -28,8 +28,8 @@ saqlanadi — server ham, internet ham kerak emas.
   Bitta vazifa uchun kuniga bir marta. Sozlamalarda **"Sinab ko'rish"** tugmasi va
   **"Windows bilan birga ishga tushsin"** imkoniyati bor (eslatma dastur ochiq
   turgandagina chiqadi).
-- **Takrorlanuvchi ishlar** — har kuni / har hafta / har oy / har yil, ixtiyoriy oraliq bilan
-  ("har 2 haftada", "har 3 oyda"). Bajarilgan deb belgilanganda vazifa "Bajarilgan"ga tushadi
+- **Takrorlanuvchi ishlar** — har kuni / har hafta / har oy / har yil.
+  Bajarilgan deb belgilanganda vazifa "Bajarilgan"ga tushadi
   va o'rniga keyingi muddat bilan yangisi ochiladi; **vaqti (masalan 09:00) saqlanadi**.
   Hisob rejalashtirilgan muddatdan olinadi — kechikib bajarilsa ham "har dushanba"
   dushanbaligicha qoladi. Oy oxiri to'g'ri hisoblanadi (31-yanvar → 28/29-fevral).

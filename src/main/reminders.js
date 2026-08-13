@@ -12,13 +12,25 @@ function startOfDay(d) {
   return x;
 }
 
+function at(day, hh, mm) {
+  const x = new Date(day);
+  x.setHours(hh, mm, 0, 0);
+  return x;
+}
+
+const MORNING = 9; // vaqti ko'rsatilmagan vazifalar uchun ertalabki soat
+
 /**
- * Vazifa uchun eslatma chiqishi kerak bo'lgan aniq payt:
+ * Vazifa uchun eslatmaning navbatdagi payti.
  *
- *   muddati o'tgan       -> darhol
- *   bugun, vaqti bor     -> aynan o'sha vaqtda (masalan 17:40)
- *   bugun, vaqti yo'q    -> ertalab soat 9:00 da
- *   kelajakdagi muddat   -> muddatdan `remindDays` kun oldin, soat 9:00 da
+ *   muddat hali uzoq      -> ogohlantirish oynasi boshlanadigan kun, 9:00
+ *   ogohlantirish oynasida-> BUGUN 9:00
+ *   bugun, vaqti bor      -> BUGUN o'sha vaqtda (masalan 18:09)
+ *   muddati o'tgan        -> BUGUN 9:00
+ *
+ * Natija hech qachon o'tmishdagi kunga tushmaydi — shu sababli "oxirgi marta
+ * qachon eslatilgan" bilan solishtirib, har kuni bir marta eslatish mumkin
+ * bo'ladi va bugungi aniq vaqt ham o'tkazib yuborilmaydi.
  *
  * @returns {Date|null} muddatsiz vazifa uchun null
  */
@@ -31,30 +43,43 @@ function reminderMoment(task, remindDays, now = new Date()) {
   const due = new Date(y, m - 1, d);
   const today = startOfDay(now);
 
-  if (due < today) return new Date(0); // kechikkan — kechiktirmaymiz
+  // Ogohlantirish oynasi muddatdan `remindDays` kun oldin ochiladi.
+  const windowStart = new Date(due);
+  windowStart.setDate(windowStart.getDate() - Math.max(0, Number(remindDays) || 0));
+  if (today < startOfDay(windowStart)) return at(windowStart, MORNING, 0);
 
-  if (due.getTime() === today.getTime()) {
-    if (task.due_time) {
-      const [hh, mm] = task.due_time.split(':').map(Number);
-      if (Number.isFinite(hh) && Number.isFinite(mm)) return new Date(y, m - 1, d, hh, mm, 0, 0);
-    }
-    return new Date(y, m - 1, d, 9, 0, 0, 0);
+  if (due.getTime() === today.getTime() && task.due_time) {
+    const [hh, mm] = task.due_time.split(':').map(Number);
+    if (Number.isFinite(hh) && Number.isFinite(mm)) return at(today, hh, mm);
   }
-
-  const warn = new Date(due);
-  warn.setDate(warn.getDate() - Math.max(0, Number(remindDays) || 0));
-  warn.setHours(9, 0, 0, 0);
-  return warn;
+  return at(today, MORNING, 0);
 }
 
-/** Payti kelgan eslatmalar, muddat bo'yicha tartiblangan. */
+/** Oldingi versiyalarda `last_notified` faqat sana ('2026-08-13') bo'lgan. */
+function parseNotified(value) {
+  if (!value) return null;
+  const s = String(value);
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(s)
+    ? new Date(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)))
+    : new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Payti kelgan va hali eslatilmagan vazifalar.
+ * Har biriga `remindAt` (shu safargi payt) qo'shiladi — keyin shu qiymat
+ * `last_notified` ga yoziladi.
+ */
 function duePending(tasks, remindDays, now = new Date()) {
   return tasks
-    .filter((t) => {
-      const at = reminderMoment(t, remindDays, now);
-      return at !== null && at <= now;
+    .map((t) => ({ task: t, remindAt: reminderMoment(t, remindDays, now) }))
+    .filter(({ task, remindAt }) => {
+      if (!remindAt || remindAt > now) return false;
+      const last = parseNotified(task.last_notified);
+      return !last || last < remindAt;
     })
+    .map(({ task, remindAt }) => ({ ...task, remindAt: remindAt.toISOString() }))
     .sort((a, b) => (a.due_date + (a.due_time || '')).localeCompare(b.due_date + (b.due_time || '')));
 }
 
-module.exports = { reminderMoment, duePending };
+module.exports = { reminderMoment, duePending, parseNotified };
